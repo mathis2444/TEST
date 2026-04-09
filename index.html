@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support LT Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>Suivi Support Long Terme</h1>
+    <p class="subtitle">Ajoute/supprime des actions, puis calcule automatiquement l'écart entre le support LT et le cours actuel.</p>
+
+    <section class="card">
+      <h2>Ajouter une action</h2>
+      <form id="add-form" class="form-grid">
+        <label>
+          Action
+          <input id="name" type="text" placeholder="Ex: TotalEnergies" required />
+        </label>
+        <label>
+          Ticker (optionnel)
+          <input id="ticker" type="text" placeholder="Ex: TTE" />
+        </label>
+        <label>
+          Support LT
+          <input id="support" type="number" step="0.01" placeholder="62.65" required />
+        </label>
+        <label>
+          Cours actuel
+          <input id="price" type="number" step="0.01" placeholder="78.87" required />
+        </label>
+        <button type="submit">Ajouter</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <div class="toolbar">
+        <h2>Portefeuille suivi</h2>
+        <input id="search" type="search" placeholder="Rechercher une action..." />
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>Ticker</th>
+              <th>Support LT</th>
+              <th>Cours actuel</th>
+              <th>Écart (€)</th>
+              <th>Écart (%)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
