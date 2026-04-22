@@ -5,6 +5,7 @@ Proposition de **cadrage TVA orienté cabinet comptable**, fondé sur le **grand
 - Source déclarative : `vat_declarations` (prioritaire) + `tax_declarations` (statut/validation/paiement).  
 - Source comptable : `general_ledger` (recalcul théorique TVA).  
 - Sorties : montant déclaré, montant GL recalculé, écart, détail par compte 445, détail par catégorie TVA, écritures explicatives.  
+- **Antériorité intégrée** : recalcul cumulatif du **1er jour de l’exercice** jusqu’à la période sélectionnée (YTD fiscal), plus vue période seule.  
 - Approche prudente : les noms de champs exacts peuvent varier selon le connecteur/entrepôt ; la méthode prévoit des équivalents.
 
 ---
@@ -13,13 +14,15 @@ Proposition de **cadrage TVA orienté cabinet comptable**, fondé sur le **grand
 
 ## 1) Logique fonctionnelle (cabinet)
 
-1. **Identifier la société + période TVA** (mois/trimestre).
-2. **Récupérer la déclaration** (montant net à payer / crédit, formulaire, statut).
-3. **Récupérer le grand livre** de la période (écritures détaillées).
-4. **Isoler et classifier les comptes TVA** via un mapping paramétrable (table dédiée).
-5. **Recalculer la TVA théorique comptable** (logique signes + catégories).
-6. **Comparer déclaré vs recalculé** et sortir l’écart.
-7. **Qualifier les écarts** (OD TVA, report crédit, autoliquidation, décalage période, etc.).
+1. **Identifier la société + période TVA** (mois/trimestre) **et la date d’ouverture d’exercice**.
+2. **Construire 2 périmètres de calcul** : (a) période sélectionnée, (b) cumul exercice (`fiscal_year_start` -> `period_end`).
+3. **Récupérer la déclaration** (montant net à payer / crédit, formulaire, statut).
+4. **Récupérer le grand livre** (écritures détaillées) sur les 2 périmètres.
+5. **Isoler et classifier les comptes TVA** via un mapping paramétrable (table dédiée).
+6. **Recalculer la TVA théorique comptable** (logique signes + catégories) en vue période et cumul exercice.
+7. **Comparer déclaré vs recalculé** et sortir l’écart.
+8. **Qualifier les écarts** (OD TVA, report crédit, autoliquidation, décalage période, PCA/FAE, etc.).
+9. **Produire l’analyse client** (concentration du CA taxable et de la TVA collectée par client/tiers).
 
 ## 2) Rôle des tables
 
@@ -85,6 +88,8 @@ Champs attendus (ou équivalents) :
 - `document_id` / `attachment_id` (si disponible).
 - `counterparty_id` / `third_party_name` (si disponible).
 - `vat_rate` / `tax_code` (si disponible, utile pour autoliquidation).
+- `due_date` / `service_period_start` / `service_period_end` (si disponibles, utile PCA/FAE).
+- `customer_id` / `customer_name` (si disponibles, utile analyse client).
 
 ---
 
@@ -133,7 +138,8 @@ CREATE TABLE IF NOT EXISTS vat_account_mapping (
 # SQL
 
 > SQL générique ANSI (adaptable PostgreSQL/Snowflake/BigQuery).  
-> Paramètres attendus : `:company_id`, `:period_start`, `:period_end`.
+> Paramètres attendus : `:company_id`, `:period_start`, `:period_end`, `:fiscal_year_start`.
+> Bonne pratique : fixer `:fiscal_year_start` au **1er jour de l’exercice** (ex. `2026-01-01`).
 
 ## A. Récupérer la déclaration sur une période
 
@@ -456,6 +462,119 @@ WHERE vat_category = 'UNMAPPED'
 ORDER BY entry_date, journal_code, account_number;
 ```
 
+
+## J. Cadrage cumulatif exercice (antériorité du 1er jour de l’exercice)
+
+```sql
+WITH declared_ytd AS (
+    SELECT
+        vd.company_id,
+        SUM(COALESCE(vd.declared_amount, vd.net_vat_due, vd.amount_due, 0)) AS declared_amount_ytd
+    FROM vat_declarations vd
+    WHERE vd.company_id = :company_id
+      AND COALESCE(vd.period_start, vd.from_date) >= :fiscal_year_start
+      AND COALESCE(vd.period_end, vd.to_date) <= :period_end
+),
+gl_ytd AS (
+    SELECT
+        COALESCE(m.vat_category, 'UNMAPPED') AS vat_category,
+        SUM(
+            CASE
+                WHEN m.direction = 'DEBIT' THEN COALESCE(gl.debit,0)
+                WHEN m.direction = 'CREDIT' THEN COALESCE(gl.credit,0)
+                ELSE COALESCE(gl.debit,0) - COALESCE(gl.credit,0)
+            END * COALESCE(m.sign_factor,1)
+        ) AS amount
+    FROM general_ledger gl
+    LEFT JOIN vat_account_mapping m
+      ON m.company_id = gl.company_id
+     AND COALESCE(gl.account_number, gl.general_account_number) LIKE CONCAT(m.account_prefix, '%')
+     AND m.is_active = TRUE
+     AND COALESCE(gl.entry_date, gl.accounting_date, gl.posting_date) >= m.valid_from
+     AND (m.valid_to IS NULL OR COALESCE(gl.entry_date, gl.accounting_date, gl.posting_date) <= m.valid_to)
+    WHERE gl.company_id = :company_id
+      AND COALESCE(gl.entry_date, gl.accounting_date, gl.posting_date) BETWEEN :fiscal_year_start AND :period_end
+      AND COALESCE(gl.account_number, gl.general_account_number) LIKE '445%'
+    GROUP BY COALESCE(m.vat_category, 'UNMAPPED')
+),
+vat_theoretical_ytd AS (
+    SELECT
+        SUM(CASE WHEN vat_category = 'COLLECTEE' THEN amount ELSE 0 END)
+      - SUM(CASE WHEN vat_category IN ('DED_ABS','DED_IMMO') THEN amount ELSE 0 END)
+      + SUM(CASE WHEN vat_category = 'DUE_AUTOLIQ' THEN amount ELSE 0 END)
+      - SUM(CASE WHEN vat_category = 'DED_AUTOLIQ' THEN amount ELSE 0 END)
+      - SUM(CASE WHEN vat_category = 'CREDIT_ANTERIEUR' THEN amount ELSE 0 END)
+      + SUM(CASE WHEN vat_category = 'REGULARISATION_TVA' THEN amount ELSE 0 END)
+      AS vat_theoretical_amount_ytd
+    FROM gl_ytd
+)
+SELECT
+    d.company_id,
+    d.declared_amount_ytd,
+    t.vat_theoretical_amount_ytd,
+    (d.declared_amount_ytd - t.vat_theoretical_amount_ytd) AS cadrage_gap_ytd
+FROM declared_ytd d
+CROSS JOIN vat_theoretical_ytd t;
+```
+
+## K. Analyse client (concentration TVA collectée / risque dossier)
+
+```sql
+WITH sales_vat AS (
+    SELECT
+        gl.company_id,
+        COALESCE(gl.customer_id, gl.counterparty_id) AS client_id,
+        COALESCE(gl.customer_name, gl.third_party_name, 'CLIENT_NON_RENSEIGNE') AS client_name,
+        COALESCE(gl.account_number, gl.general_account_number) AS account_number,
+        COALESCE(gl.credit,0) - COALESCE(gl.debit,0) AS vat_collectee_line
+    FROM general_ledger gl
+    WHERE gl.company_id = :company_id
+      AND COALESCE(gl.entry_date, gl.accounting_date, gl.posting_date) BETWEEN :fiscal_year_start AND :period_end
+      AND COALESCE(gl.account_number, gl.general_account_number) LIKE '44571%'
+)
+SELECT
+    client_id,
+    client_name,
+    SUM(vat_collectee_line) AS vat_collectee_ytd,
+    ROUND(100 * SUM(vat_collectee_line) / NULLIF(SUM(SUM(vat_collectee_line)) OVER (), 0), 2) AS share_pct
+FROM sales_vat
+GROUP BY client_id, client_name
+ORDER BY vat_collectee_ytd DESC
+FETCH FIRST 20 ROWS ONLY;
+```
+
+## L. Détection PCA / FAE impact TVA (contrôles de cut-off)
+
+```sql
+SELECT
+    COALESCE(gl.entry_date, gl.accounting_date, gl.posting_date) AS entry_date,
+    gl.journal_code,
+    COALESCE(gl.account_number, gl.general_account_number) AS account_number,
+    gl.entry_label,
+    gl.line_label,
+    gl.piece_number,
+    gl.document_number,
+    COALESCE(gl.debit,0) AS debit,
+    COALESCE(gl.credit,0) AS credit,
+    CASE
+        WHEN COALESCE(gl.account_number, gl.general_account_number) LIKE '486%' THEN 'PCA (charges constatées d'avance)'
+        WHEN COALESCE(gl.account_number, gl.general_account_number) LIKE '4181%'
+          OR COALESCE(gl.account_number, gl.general_account_number) LIKE '4188%' THEN 'FAE (factures à établir)'
+        ELSE 'AUTRE_CUTOFF'
+    END AS cutoff_type
+FROM general_ledger gl
+WHERE gl.company_id = :company_id
+  AND COALESCE(gl.entry_date, gl.accounting_date, gl.posting_date) BETWEEN :fiscal_year_start AND :period_end
+  AND (
+        COALESCE(gl.account_number, gl.general_account_number) LIKE '486%'
+     OR COALESCE(gl.account_number, gl.general_account_number) LIKE '4181%'
+     OR COALESCE(gl.account_number, gl.general_account_number) LIKE '4188%'
+     OR UPPER(COALESCE(gl.entry_label,'')) LIKE '%PCA%'
+     OR UPPER(COALESCE(gl.entry_label,'')) LIKE '%FAE%'
+      )
+ORDER BY entry_date;
+```
+
 ---
 
 # Tableau final
@@ -472,11 +591,16 @@ Colonnes minimales :
 - `declared_amount`
 - `paid_amount` (si dispo)
 - `declaration_status`
-- `vat_theoretical_amount`
-- `cadrage_gap`
+- `vat_theoretical_amount` (période)
+- `vat_theoretical_amount_ytd` (du 1er jour de l'exercice à `period_end`)
+- `declared_amount_ytd`
+- `cadrage_gap` (période)
+- `cadrage_gap_ytd`
 - `gap_rate_pct` (écart / déclaré)
 - `top_unmapped_accounts`
 - `top_od_entries`
+- `top_clients_vat_collectee`
+- `top_cutoff_entries_pca_fae`
 - `comments_probable_causes`
 
 ## Exemple d’usage cabinet
@@ -497,6 +621,8 @@ Colonnes minimales :
 4. **Décalages de période** : FNP/FAE, OD de cut-off, déclarations rectificatives.
 5. **Écritures directes 445** sans pièce source : à isoler systématiquement.
 6. **Avoirs et régularisations** : vérifier la bonne imputation catégorie et la période de prise en compte.
+7. **PCA / FAE** : contrôler la date d’exigibilité TVA vs date de comptabilisation de cut-off.
+8. **Analyse client** : si le tiers n’est pas renseigné sur les lignes GL, l’analyse de concentration devient partielle.
 
 ---
 
@@ -541,7 +667,13 @@ Colonnes minimales :
   - comptes `UNMAPPED`
   - journaux `OD`
 
-## 4) Gouvernance
+## 4) Analyse clients / PCA-FAE en pratique
+
+- Ajouter un onglet ou une vue `vw_vat_clients_ytd` (Top 20 clients en TVA collectée YTD).
+- Ajouter `vw_vat_cutoff_pca_fae` pour revue chef de mission sur les écritures de cut-off.
+- Documenter toute écriture PCA/FAE impactant la TVA dans les commentaires de cadrage.
+
+## 5) Gouvernance
 
 - Valider le mapping avec le chef de mission à l’onboarding dossier.
 - Versionner le mapping (date effet + auteur modif).
