@@ -6,6 +6,7 @@ Proposition de **cadrage TVA orienté cabinet comptable**, fondé sur le **grand
 - Source comptable : `general_ledger` (recalcul théorique TVA).  
 - Sorties : montant déclaré, montant GL recalculé, écart, détail par compte 445, détail par catégorie TVA, écritures explicatives.  
 - **Antériorité intégrée** : recalcul cumulatif du **1er jour de l’exercice** jusqu’à la période sélectionnée (YTD fiscal), plus vue période seule.  
+- **Analyse ligne par ligne** : détection d’anomalies sur chaque écriture TVA avec proposition de correction et simulation d’impact sur le cadrage.  
 - Approche prudente : les noms de champs exacts peuvent varier selon le connecteur/entrepôt ; la méthode prévoit des équivalents.
 
 ---
@@ -23,6 +24,7 @@ Proposition de **cadrage TVA orienté cabinet comptable**, fondé sur le **grand
 7. **Comparer déclaré vs recalculé** et sortir l’écart.
 8. **Qualifier les écarts** (OD TVA, report crédit, autoliquidation, décalage période, PCA/FAE, etc.).
 9. **Produire l’analyse client** (concentration du CA taxable et de la TVA collectée par client/tiers).
+10. **Produire l’analyse ligne à ligne** avec score d’anomalie et statut de correction (proposée/validée/appliquée).
 
 ## 2) Rôle des tables
 
@@ -132,6 +134,34 @@ CREATE TABLE IF NOT EXISTS vat_account_mapping (
 - Autoriser un mapping par société (ou mapping global fallback).
 - Gérer les changements dans le temps (`valid_from`, `valid_to`).
 - Prévoir une catégorie « non classé » pour pilotage qualité.
+
+
+## Table complémentaire de corrections (ajustement cadrage)
+
+```sql
+-- Journal de corrections proposé/validé (sans écraser la donnée source)
+CREATE TABLE IF NOT EXISTS vat_cadrage_adjustments (
+    adjustment_id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    company_id                VARCHAR(64) NOT NULL,
+    line_id                   VARCHAR(128),                 -- identifiant ligne GL concernée
+    entry_id                  VARCHAR(128),
+    declaration_id            VARCHAR(128),
+    period_start              DATE NOT NULL,
+    period_end                DATE NOT NULL,
+    issue_code                VARCHAR(50) NOT NULL,         -- ex: UNMAPPED_445, OD_HIGH_RISK
+    proposed_action           VARCHAR(100) NOT NULL,        -- ex: REMAP_CATEGORY, PERIOD_SHIFT
+    proposed_vat_category     VARCHAR(100),
+    proposed_sign_factor      SMALLINT,
+    proposed_period_start     DATE,
+    proposed_period_end       DATE,
+    amount_impact             NUMERIC(18,2),
+    status                    VARCHAR(20) NOT NULL,         -- PROPOSED / VALIDATED / APPLIED / REJECTED
+    reviewer                  VARCHAR(120),
+    reviewed_at               TIMESTAMP,
+    comment                   VARCHAR(500),
+    created_at                TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
 
 ---
 
@@ -575,6 +605,195 @@ WHERE gl.company_id = :company_id
 ORDER BY entry_date;
 ```
 
+
+## M. Analyse ligne par ligne des anomalies TVA
+
+```sql
+WITH base AS (
+    SELECT
+        gl.company_id,
+        gl.entry_id,
+        gl.line_id,
+        COALESCE(gl.entry_date, gl.accounting_date, gl.posting_date) AS entry_date,
+        gl.journal_code,
+        COALESCE(gl.account_number, gl.general_account_number) AS account_number,
+        gl.entry_label,
+        gl.line_label,
+        gl.piece_number,
+        gl.document_number,
+        gl.invoice_number,
+        COALESCE(gl.debit,0) AS debit,
+        COALESCE(gl.credit,0) AS credit,
+        (COALESCE(gl.debit,0) - COALESCE(gl.credit,0)) AS net_amount,
+        COALESCE(m.vat_category, 'UNMAPPED') AS vat_category,
+        m.direction,
+        m.sign_factor
+    FROM general_ledger gl
+    LEFT JOIN vat_account_mapping m
+      ON m.company_id = gl.company_id
+     AND COALESCE(gl.account_number, gl.general_account_number) LIKE CONCAT(m.account_prefix, '%')
+     AND m.is_active = TRUE
+     AND COALESCE(gl.entry_date, gl.accounting_date, gl.posting_date) >= m.valid_from
+     AND (m.valid_to IS NULL OR COALESCE(gl.entry_date, gl.accounting_date, gl.posting_date) <= m.valid_to)
+    WHERE gl.company_id = :company_id
+      AND COALESCE(gl.entry_date, gl.accounting_date, gl.posting_date) BETWEEN :fiscal_year_start AND :period_end
+      AND COALESCE(gl.account_number, gl.general_account_number) LIKE '445%'
+),
+rules AS (
+    SELECT
+        b.*,
+        CASE
+            WHEN vat_category = 'UNMAPPED' THEN 'UNMAPPED_445'
+            WHEN journal_code = 'OD' AND ABS(net_amount) >= 1000 THEN 'OD_HIGH_RISK'
+            WHEN account_number LIKE '44571%' AND debit > credit THEN 'COLLECTEE_SIGN_INVERTED'
+            WHEN account_number LIKE '44566%' AND credit > debit THEN 'DEDUCTIBLE_SIGN_INVERTED'
+            WHEN invoice_number IS NULL AND ABS(net_amount) > 500 THEN 'NO_INVOICE_REFERENCE'
+            WHEN entry_date < :period_start THEN 'PRIOR_PERIOD_IMPACT'
+            ELSE 'OK'
+        END AS issue_code
+    FROM base b
+),
+scored AS (
+    SELECT
+        *,
+        CASE issue_code
+            WHEN 'UNMAPPED_445' THEN 100
+            WHEN 'OD_HIGH_RISK' THEN 90
+            WHEN 'COLLECTEE_SIGN_INVERTED' THEN 85
+            WHEN 'DEDUCTIBLE_SIGN_INVERTED' THEN 85
+            WHEN 'NO_INVOICE_REFERENCE' THEN 70
+            WHEN 'PRIOR_PERIOD_IMPACT' THEN 60
+            ELSE 0
+        END AS anomaly_score
+    FROM rules
+)
+SELECT
+    company_id, entry_id, line_id, entry_date, journal_code, account_number,
+    entry_label, line_label, piece_number, document_number, invoice_number,
+    debit, credit, net_amount, vat_category, issue_code, anomaly_score
+FROM scored
+WHERE issue_code <> 'OK'
+ORDER BY anomaly_score DESC, ABS(net_amount) DESC, entry_date;
+```
+
+## N. Proposition automatique de correction (sans écraser la source)
+
+```sql
+INSERT INTO vat_cadrage_adjustments (
+    company_id, line_id, entry_id, period_start, period_end, issue_code,
+    proposed_action, proposed_vat_category, proposed_sign_factor, amount_impact, status, comment
+)
+SELECT
+    x.company_id,
+    x.line_id,
+    x.entry_id,
+    :period_start,
+    :period_end,
+    x.issue_code,
+    CASE
+        WHEN x.issue_code = 'UNMAPPED_445' THEN 'REMAP_CATEGORY'
+        WHEN x.issue_code = 'COLLECTEE_SIGN_INVERTED' THEN 'SET_SIGN_FACTOR_MINUS_ONE'
+        WHEN x.issue_code = 'DEDUCTIBLE_SIGN_INVERTED' THEN 'SET_SIGN_FACTOR_MINUS_ONE'
+        WHEN x.issue_code = 'PRIOR_PERIOD_IMPACT' THEN 'PERIOD_SHIFT'
+        WHEN x.issue_code = 'NO_INVOICE_REFERENCE' THEN 'REQUEST_DOCUMENT'
+        ELSE 'MANUAL_REVIEW'
+    END AS proposed_action,
+    CASE
+        WHEN x.account_number LIKE '44571%' THEN 'COLLECTEE'
+        WHEN x.account_number LIKE '44566%' THEN 'DED_ABS'
+        WHEN x.account_number LIKE '44562%' THEN 'DED_IMMO'
+        ELSE NULL
+    END AS proposed_vat_category,
+    CASE
+        WHEN x.issue_code IN ('COLLECTEE_SIGN_INVERTED','DEDUCTIBLE_SIGN_INVERTED') THEN -1
+        ELSE NULL
+    END AS proposed_sign_factor,
+    x.net_amount AS amount_impact,
+    'PROPOSED' AS status,
+    'Proposition auto issue du moteur de règles ligne-à-ligne' AS comment
+FROM (
+    -- Reprendre la requête M (scored)
+    SELECT
+        company_id, entry_id, line_id, account_number, net_amount, issue_code
+    FROM (
+        SELECT
+            gl.company_id, gl.entry_id, gl.line_id,
+            COALESCE(gl.account_number, gl.general_account_number) AS account_number,
+            (COALESCE(gl.debit,0) - COALESCE(gl.credit,0)) AS net_amount,
+            CASE
+                WHEN COALESCE(m.vat_category, 'UNMAPPED') = 'UNMAPPED' THEN 'UNMAPPED_445'
+                WHEN gl.journal_code = 'OD' AND ABS(COALESCE(gl.debit,0) - COALESCE(gl.credit,0)) >= 1000 THEN 'OD_HIGH_RISK'
+                WHEN COALESCE(gl.account_number, gl.general_account_number) LIKE '44571%' AND COALESCE(gl.debit,0) > COALESCE(gl.credit,0) THEN 'COLLECTEE_SIGN_INVERTED'
+                WHEN COALESCE(gl.account_number, gl.general_account_number) LIKE '44566%' AND COALESCE(gl.credit,0) > COALESCE(gl.debit,0) THEN 'DEDUCTIBLE_SIGN_INVERTED'
+                WHEN gl.invoice_number IS NULL AND ABS(COALESCE(gl.debit,0) - COALESCE(gl.credit,0)) > 500 THEN 'NO_INVOICE_REFERENCE'
+                WHEN COALESCE(gl.entry_date, gl.accounting_date, gl.posting_date) < :period_start THEN 'PRIOR_PERIOD_IMPACT'
+                ELSE 'OK'
+            END AS issue_code
+        FROM general_ledger gl
+        LEFT JOIN vat_account_mapping m
+          ON m.company_id = gl.company_id
+         AND COALESCE(gl.account_number, gl.general_account_number) LIKE CONCAT(m.account_prefix, '%')
+         AND m.is_active = TRUE
+        WHERE gl.company_id = :company_id
+          AND COALESCE(gl.entry_date, gl.accounting_date, gl.posting_date) BETWEEN :fiscal_year_start AND :period_end
+          AND COALESCE(gl.account_number, gl.general_account_number) LIKE '445%'
+    ) q
+    WHERE issue_code <> 'OK'
+) x;
+```
+
+## O. Cadrage ajusté (après corrections validées)
+
+```sql
+WITH base_classified AS (
+    SELECT
+        gl.company_id,
+        gl.line_id,
+        COALESCE(gl.entry_date, gl.accounting_date, gl.posting_date) AS entry_date,
+        COALESCE(gl.account_number, gl.general_account_number) AS account_number,
+        COALESCE(gl.debit,0) AS debit,
+        COALESCE(gl.credit,0) AS credit,
+        COALESCE(m.vat_category, 'UNMAPPED') AS vat_category,
+        COALESCE(m.direction, 'NET') AS direction,
+        COALESCE(m.sign_factor, 1) AS sign_factor
+    FROM general_ledger gl
+    LEFT JOIN vat_account_mapping m
+      ON m.company_id = gl.company_id
+     AND COALESCE(gl.account_number, gl.general_account_number) LIKE CONCAT(m.account_prefix, '%')
+     AND m.is_active = TRUE
+    WHERE gl.company_id = :company_id
+      AND COALESCE(gl.entry_date, gl.accounting_date, gl.posting_date) BETWEEN :fiscal_year_start AND :period_end
+      AND COALESCE(gl.account_number, gl.general_account_number) LIKE '445%'
+),
+adj AS (
+    SELECT *
+    FROM vat_cadrage_adjustments
+    WHERE company_id = :company_id
+      AND period_start = :period_start
+      AND period_end = :period_end
+      AND status IN ('VALIDATED','APPLIED')
+),
+adjusted AS (
+    SELECT
+        b.company_id,
+        b.line_id,
+        COALESCE(a.proposed_vat_category, b.vat_category) AS vat_category_final,
+        CASE
+            WHEN b.direction = 'DEBIT' THEN b.debit
+            WHEN b.direction = 'CREDIT' THEN b.credit
+            ELSE b.debit - b.credit
+        END * COALESCE(a.proposed_sign_factor, b.sign_factor, 1) AS normalized_amount
+    FROM base_classified b
+    LEFT JOIN adj a ON a.line_id = b.line_id
+)
+SELECT
+    vat_category_final AS vat_category,
+    SUM(normalized_amount) AS amount_adjusted
+FROM adjusted
+GROUP BY vat_category_final
+ORDER BY vat_category_final;
+```
+
 ---
 
 # Tableau final
@@ -601,6 +820,11 @@ Colonnes minimales :
 - `top_od_entries`
 - `top_clients_vat_collectee`
 - `top_cutoff_entries_pca_fae`
+- `anomaly_count_line_level`
+- `anomaly_amount_line_level`
+- `adjustments_proposed_count`
+- `adjustments_validated_count`
+- `cadrage_gap_adjusted`
 - `comments_probable_causes`
 
 ## Exemple d’usage cabinet
@@ -623,6 +847,7 @@ Colonnes minimales :
 6. **Avoirs et régularisations** : vérifier la bonne imputation catégorie et la période de prise en compte.
 7. **PCA / FAE** : contrôler la date d’exigibilité TVA vs date de comptabilisation de cut-off.
 8. **Analyse client** : si le tiers n’est pas renseigné sur les lignes GL, l’analyse de concentration devient partielle.
+9. **Corrections de cadrage** : conserver une piste d’audit (qui a proposé/validé/appliqué) et ne jamais modifier la source GL brute.
 
 ---
 
@@ -636,6 +861,7 @@ Colonnes minimales :
   - `vw_vat_gl_classified` (GL 445 + mapping)
   - `vw_vat_cadrage` (comparaison + écart)
 - Ajouter une requête d’audit `vw_vat_anomalies` (OD, unmapped, seuil).
+- Ajouter `vw_vat_line_anomalies` (analyse ligne par ligne) et `vw_vat_cadrage_adjusted` (simulation après corrections validées).
 
 ## 2) Power BI (industrialisation cabinet)
 
