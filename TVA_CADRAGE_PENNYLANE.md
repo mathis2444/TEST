@@ -7,6 +7,7 @@ Proposition de **cadrage TVA orienté cabinet comptable**, fondé sur le **grand
 - Sorties : montant déclaré, montant GL recalculé, écart, détail par compte 445, détail par catégorie TVA, écritures explicatives.  
 - **Antériorité intégrée** : recalcul cumulatif du **1er jour de l’exercice** jusqu’à la période sélectionnée (YTD fiscal), plus vue période seule.  
 - **Analyse ligne par ligne** : détection d’anomalies sur chaque écriture TVA avec proposition de correction et simulation d’impact sur le cadrage.  
+- **Interface utilisateur prévue** : parcours collaborateur / chef de mission / responsable portefeuille avec files d’anomalies, validation de corrections et tableau de pilotage.  
 - Approche prudente : les noms de champs exacts peuvent varier selon le connecteur/entrepôt ; la méthode prévoit des équivalents.
 
 ---
@@ -25,6 +26,7 @@ Proposition de **cadrage TVA orienté cabinet comptable**, fondé sur le **grand
 8. **Qualifier les écarts** (OD TVA, report crédit, autoliquidation, décalage période, PCA/FAE, etc.).
 9. **Produire l’analyse client** (concentration du CA taxable et de la TVA collectée par client/tiers).
 10. **Produire l’analyse ligne à ligne** avec score d’anomalie et statut de correction (proposée/validée/appliquée).
+11. **Exposer une interface de revue** (liste de tâches, écran détail écriture, workflow de validation, export supervision).
 
 ## 2) Rôle des tables
 
@@ -848,6 +850,67 @@ Colonnes minimales :
 7. **PCA / FAE** : contrôler la date d’exigibilité TVA vs date de comptabilisation de cut-off.
 8. **Analyse client** : si le tiers n’est pas renseigné sur les lignes GL, l’analyse de concentration devient partielle.
 9. **Corrections de cadrage** : conserver une piste d’audit (qui a proposé/validé/appliqué) et ne jamais modifier la source GL brute.
+10. **Adoption utilisateur** : sans workflow UI simple (filtres, priorisation, statuts), les anomalies restent non traitées et le cadrage perd en valeur opérationnelle.
+
+---
+
+# Interface utilisateur et utilisation (opération cabinet)
+
+## 1) Parcours utilisateur par rôle
+
+- **Collaborateur**
+  - Ouvre la période et visualise `cadrage_gap` + `cadrage_gap_ytd`.
+  - Traite la file `vw_vat_line_anomalies` triée par `anomaly_score`.
+  - Propose des actions de correction (sans application directe).
+- **Chef de mission**
+  - Revoit les corrections `PROPOSED`, valide/rejette avec commentaire.
+  - Contrôle les impacts sur `cadrage_gap_adjusted`.
+  - Priorise PCA/FAE, OD et anomalies sans pièce.
+- **Responsable portefeuille**
+  - Suit les KPI multi-dossiers : taux d’écart, volumétrie anomalies, délai de traitement.
+  - Déclenche les actions de fiabilisation mapping/comptabilisation.
+
+## 2) Écrans recommandés
+
+1. **Écran 1 — Vue synthèse dossier**
+   - Société, période, formulaire, déclaré, GL théorique, écart période, écart YTD, écart ajusté.
+   - Pastilles statut : `OK`, `A_REVOIR`, `BLOQUANT`.
+
+2. **Écran 2 — Liste anomalies ligne-à-ligne**
+   - Colonnes : date, journal, compte 445, pièce, facture, net, `issue_code`, `anomaly_score`, action proposée, statut.
+   - Filtres rapides : `OD`, `UNMAPPED`, `PCA/FAE`, `>= seuil montant`, `statut correction`.
+
+3. **Écran 3 — Fiche écriture (drill-through)**
+   - Détail ligne + lignes sœurs de la pièce.
+   - Historique des décisions (`vat_cadrage_adjustments`).
+   - Boutons : *Valider correction*, *Rejeter*, *Assigner*, *Demander justificatif*.
+
+4. **Écran 4 — Pilotage portefeuille**
+   - Top dossiers à risque, top causes d’écart, top comptes non mappés, délai moyen de résolution.
+
+## 3) Workflow de traitement
+
+1. **Détection** : chargement des anomalies M.  
+2. **Proposition** : alimentation `vat_cadrage_adjustments` via N.  
+3. **Validation** : chef de mission passe `PROPOSED -> VALIDATED/REJECTED`.  
+4. **Simulation** : recalcul via O (`cadrage_gap_adjusted`).  
+5. **Clôture** : passage `APPLIED` + commentaire de clôture.
+
+## 4) Règles UX minimales à implémenter
+
+- Interdire l’application directe d’une correction sans validation (séparation des rôles).
+- Afficher l’impact montant avant/après pour chaque action.
+- Forcer un commentaire pour tout rejet ou validation manuelle hors règle.
+- Conserver l’audit trail complet (utilisateur, date, motif, ancien/nouveau paramètre).
+
+## 5) Implémentation rapide Power BI / Excel
+
+- **Power BI** :
+  - Page 1 *Synthèse*, page 2 *Anomalies*, page 3 *Décisions*, page 4 *Portefeuille*.
+  - Utiliser des signets et drill-through depuis la synthèse vers la ligne GL.
+- **Excel/Power Query** :
+  - Onglet `06_Line_Anomalies` + `07_Adjustments_Workflow`.
+  - Listes déroulantes de statut (`PROPOSED/VALIDATED/APPLIED/REJECTED`) et contrôle de saisie commentaire.
 
 ---
 
@@ -860,6 +923,9 @@ Colonnes minimales :
   - `vw_vat_declared` (déclaration + statut paiement)
   - `vw_vat_gl_classified` (GL 445 + mapping)
   - `vw_vat_cadrage` (comparaison + écart)
+- Créer 2 vues UI workflow :
+  - `vw_vat_line_anomalies` (file de traitement collaborateur)
+  - `vw_vat_adjustments_queue` (file de validation chef de mission)
 - Ajouter une requête d’audit `vw_vat_anomalies` (OD, unmapped, seuil).
 - Ajouter `vw_vat_line_anomalies` (analyse ligne par ligne) et `vw_vat_cadrage_adjusted` (simulation après corrections validées).
 
