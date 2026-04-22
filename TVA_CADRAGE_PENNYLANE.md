@@ -999,3 +999,24 @@ Colonnes minimales :
 - Versionner le mapping (date effet + auteur modif).
 - Poser un seuil d’alerte : ex. écart absolu > 100 € ou > 2 %.
 
+
+---
+
+# Code exécutable livré (ouverture dossier + export Excel)
+
+Un prototype opérationnel a été ajouté :
+
+- `app.py` : application Streamlit de cadrage TVA (ouverture dossier DuckDB, sélection société/période, calcul, anomalies, export Excel).
+- `requirements.txt` : dépendances Python.
+- `README_APP.md` : mode d'emploi rapide.
+
+Fonctionnalités livrées dans l'app :
+
+1. Ouverture du dossier (`.duckdb`) via interface.
+2. Paramétrage période + ouverture d'exercice.
+3. Calcul cadrage période et YTD.
+4. Détail par compte 445 et catégorie TVA.
+5. Analyse ligne à ligne des anomalies.
+6. Analyse clients.
+7. Export Excel multi-onglets après cadrage.
+
