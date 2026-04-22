@@ -912,6 +912,34 @@ Colonnes minimales :
   - Onglet `06_Line_Anomalies` + `07_Adjustments_Workflow`.
   - Listes déroulantes de statut (`PROPOSED/VALIDATED/APPLIED/REJECTED`) et contrôle de saisie commentaire.
 
+## 6) Faut-il une fenêtre (UI) ou Excel ?
+
+### Recommandation simple
+
+- **Phase 1 (rapide, 1 à 3 semaines)** : démarrez sur **Excel + Power Query** pour valider le mapping, les règles d’anomalies et le workflow métier.
+- **Phase 2 (industrialisation)** : basculez vers une **fenêtre UI (Power BI app ou web interne)** dès que vous avez plusieurs dossiers / plusieurs utilisateurs.
+
+### Comparatif décisionnel
+
+| Critère | Excel / Power Query | Fenêtre UI (Power BI ou Web) |
+|---|---|---|
+| Démarrage | Très rapide | Plus long |
+| Coût initial | Faible | Moyen |
+| Multi-utilisateurs | Limité | Fort |
+| Workflow validation | Manuel | Structuré (statuts, rôles) |
+| Traçabilité | Possible mais fragile | Forte (audit trail natif) |
+| Passage à l’échelle | Limité | Très bon |
+
+### Règle pratique cabinet
+
+- Si vous avez **< 10 dossiers TVA actifs** et 1-2 utilisateurs : **Excel est suffisant**.
+- Si vous avez **>= 10 dossiers**, plusieurs collaborateurs, besoin de validation chef de mission et pilotage portefeuille : **fenêtre UI recommandée**.
+
+### Proposition concrète
+
+1. **Maintenant** : je vous fournis un template Excel piloté par les vues SQL (`vw_vat_cadrage`, `vw_vat_line_anomalies`, `vw_vat_adjustments_queue`).
+2. **Ensuite** : même modèle de données réutilisé dans Power BI / UI, sans refaire la logique métier.
+
 ---
 
 # Recommandations de mise en œuvre
