@@ -1007,8 +1007,10 @@ Colonnes minimales :
 Un prototype opérationnel a été ajouté :
 
 - `app.py` : application Streamlit de cadrage TVA (ouverture dossier DuckDB, sélection société/période, calcul, anomalies, export Excel).
-- `requirements.txt` : dépendances Python.
-- `README_APP.md` : mode d'emploi rapide.
+- `web_local/index.html` : version **web locale sans Python** (chargement CSV + export Excel).
+- `web_local/mapping_template.csv` : modèle de mapping prêt à compléter.
+- `requirements.txt` : dépendances Python (si mode Streamlit).
+- `README_APP.md` : mode d'emploi rapide (Streamlit + Web local).
 
 Fonctionnalités livrées dans l'app :
 

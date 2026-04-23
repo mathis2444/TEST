@@ -1,27 +1,30 @@
-# App opérationnelle de cadrage TVA
+# Cadrage TVA – 2 modes d'utilisation
 
-## Lancer
+## Mode A (Python / Streamlit)
 
 ```bash
 pip install -r requirements.txt
 streamlit run app.py
 ```
 
-## Pré-requis données (dans le fichier DuckDB)
+## Mode B (Web local sans Python)
 
-Tables minimales :
+Ouvrir directement `web_local/index.html` dans votre navigateur (Chrome/Edge).
+
+- Chargez `vat_declarations.csv`.
+- Chargez `general_ledger.csv`.
+- (Optionnel) chargez `mapping.csv` en partant de `web_local/mapping_template.csv`.
+- Lancez le cadrage.
+- Exportez le fichier Excel.
+
+## Pré-requis données
+
+Tables/CSV minimales :
 - `vat_declarations`
 - `general_ledger`
 
 Optionnelle :
 - `tax_declarations`
-
-## Utilisation
-
-1. Renseigner le chemin du fichier `.duckdb` et cliquer **Ouvrir le dossier**.
-2. Sélectionner la société, la période et la date d'ouverture d'exercice.
-3. Cliquer **Lancer le cadrage**.
-4. Télécharger le fichier via **Export Excel du cadrage**.
 
 ## Résultats exportés
 
@@ -31,4 +34,3 @@ Optionnelle :
 - Anomalies
 - ClientAnalysis
 - ClassifiedLines
-
