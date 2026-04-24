@@ -1,32 +1,27 @@
-# Cadrage TVA – 2 modes d'utilisation
+# Cadrage TVA – version Web local (sans Python)
 
-## Mode A (Python / Streamlit)
+## Démarrage
 
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
+Ouvrir `web_local/index.html` dans Chrome/Edge.
 
-## Mode B (Web local sans Python)
+## Mode 1 — CSV local
 
-Ouvrir directement `web_local/index.html` dans votre navigateur (Chrome/Edge).
+1. Chargez `vat_declarations.csv`.
+2. Chargez `general_ledger.csv`.
+3. (Optionnel) chargez un mapping via `web_local/mapping_template.csv`.
+4. Sélectionnez société + période + ouverture exercice.
+5. Lancez le cadrage puis exportez en Excel.
 
-- Chargez `vat_declarations.csv`.
-- Chargez `general_ledger.csv`.
-- (Optionnel) chargez `mapping.csv` en partant de `web_local/mapping_template.csv`.
-- Lancez le cadrage.
-- Exportez le fichier Excel.
+## Mode 2 — API (clé API dans l’UI)
 
-## Pré-requis données
+1. Saisissez `Base URL API` + `API Key`.
+2. Renseignez les endpoints (companies, vat_declarations, general_ledger).
+3. Cliquez **Charger depuis API**.
+4. Sélectionnez la société puis lancez le cadrage.
 
-Tables/CSV minimales :
-- `vat_declarations`
-- `general_ledger`
+> Note: votre API doit autoriser CORS pour un appel direct depuis le navigateur.
 
-Optionnelle :
-- `tax_declarations`
-
-## Résultats exportés
+## Sorties exportées
 
 - Summary
 - ByCategory

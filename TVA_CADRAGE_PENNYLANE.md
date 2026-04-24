@@ -1002,19 +1002,17 @@ Colonnes minimales :
 
 ---
 
-# Code exécutable livré (ouverture dossier + export Excel)
+# Code exécutable livré (web local + API + export Excel)
 
 Un prototype opérationnel a été ajouté :
 
-- `app.py` : application Streamlit de cadrage TVA (ouverture dossier DuckDB, sélection société/période, calcul, anomalies, export Excel).
-- `web_local/index.html` : version **web locale sans Python** (chargement CSV + export Excel).
+- `web_local/index.html` : application **web locale sans Python** (mode CSV local + mode API avec clé API + export Excel).
 - `web_local/mapping_template.csv` : modèle de mapping prêt à compléter.
-- `requirements.txt` : dépendances Python (si mode Streamlit).
-- `README_APP.md` : mode d'emploi rapide (Streamlit + Web local).
+- `README_APP.md` : mode d'emploi rapide web local.
 
 Fonctionnalités livrées dans l'app :
 
-1. Ouverture du dossier (`.duckdb`) via interface.
+1. Ouverture des données via fichiers CSV locaux **ou via API** (clé API saisie dans l'interface).
 2. Paramétrage période + ouverture d'exercice.
 3. Calcul cadrage période et YTD.
 4. Détail par compte 445 et catégorie TVA.

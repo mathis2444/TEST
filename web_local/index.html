@@ -7,29 +7,49 @@
   <style>
     body{font-family:Arial,sans-serif;margin:20px;background:#f7f7f9;color:#222}
     .card{background:#fff;border:1px solid #ddd;border-radius:10px;padding:16px;margin-bottom:16px}
-    h1,h2{margin-top:0}
+    h1,h2,h3{margin:0 0 8px 0}
     .grid{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:12px}
+    .grid2{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:12px}
     input,select,button{padding:8px;border:1px solid #bbb;border-radius:6px;width:100%}
     button{cursor:pointer;background:#1f6feb;color:#fff;border:none}
     table{border-collapse:collapse;width:100%;font-size:13px;background:#fff}
-    th,td{border:1px solid #ddd;padding:6px}
-    th{background:#f0f4ff}
+    th,td{border:1px solid #ddd;padding:6px} th{background:#f0f4ff}
     .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
     .kpi{background:#eef4ff;border:1px solid #d7e3ff;border-radius:8px;padding:10px}
-    .small{font-size:12px;color:#666}
+    .small{font-size:12px;color:#666} .row{display:flex;gap:8px;align-items:center}
   </style>
 </head>
 <body>
   <h1>📊 Cadrage TVA - Web local (sans Python)</h1>
-  <div class="small">Chargez vos CSV, lancez le cadrage, exportez le résultat en Excel.</div>
+  <div class="small">Mode CSV local ou API (clé API dans l'interface) + export Excel.</div>
 
   <div class="card">
-    <h2>1) Fichiers</h2>
-    <div class="grid">
-      <div><label>vat_declarations.csv</label><input id="vatFile" type="file" accept=".csv" /></div>
-      <div><label>general_ledger.csv</label><input id="glFile" type="file" accept=".csv" /></div>
-      <div><label>mapping.csv (optionnel)</label><input id="mapFile" type="file" accept=".csv" /></div>
-      <div><label>&nbsp;</label><button id="loadBtn">Charger les fichiers</button></div>
+    <h2>1) Source des données</h2>
+    <div class="row">
+      <label><input type="radio" name="sourceMode" value="csv" checked /> CSV local</label>
+      <label><input type="radio" name="sourceMode" value="api" /> API</label>
+    </div>
+
+    <div id="csvBox" style="margin-top:10px">
+      <div class="grid">
+        <div><label>vat_declarations.csv</label><input id="vatFile" type="file" accept=".csv" /></div>
+        <div><label>general_ledger.csv</label><input id="glFile" type="file" accept=".csv" /></div>
+        <div><label>mapping.csv (optionnel)</label><input id="mapFile" type="file" accept=".csv" /></div>
+        <div><label>&nbsp;</label><button id="loadCsvBtn">Charger fichiers CSV</button></div>
+      </div>
+    </div>
+
+    <div id="apiBox" style="display:none;margin-top:10px">
+      <div class="grid2">
+        <div><label>Base URL API</label><input id="apiBase" placeholder="https://api.exemple.com" /></div>
+        <div><label>API Key</label><input id="apiKey" type="password" placeholder="clé API" /></div>
+        <div><label>Endpoint sociétés</label><input id="epCompanies" value="/companies" /></div>
+        <div><label>Endpoint TVA</label><input id="epVat" value="/vat_declarations" /></div>
+        <div><label>Endpoint GL</label><input id="epGl" value="/general_ledger" /></div>
+        <div><label>Endpoint mapping (optionnel)</label><input id="epMap" placeholder="/vat_account_mapping" /></div>
+      </div>
+      <div style="margin-top:10px"><button id="loadApiBtn">Charger depuis API</button></div>
+      <div class="small">Headers utilisés: Authorization: Bearer &lt;API_KEY&gt;, Content-Type: application/json.</div>
     </div>
   </div>
 
@@ -54,64 +74,49 @@
     <div style="margin-top:12px"><button id="exportBtn">📥 Export Excel</button></div>
   </div>
 
-  <div class="card"><h2>Synthèse</h2><div id="summary"></div></div>
-  <div class="card"><h2>Par catégorie TVA</h2><div id="byCategory"></div></div>
-  <div class="card"><h2>Par compte 445</h2><div id="byAccount"></div></div>
-  <div class="card"><h2>Anomalies</h2><div id="anomalies"></div></div>
-  <div class="card"><h2>Analyse clients</h2><div id="clients"></div></div>
+  <div class="card"><h3>Synthèse</h3><div id="summary"></div></div>
+  <div class="card"><h3>Par catégorie TVA</h3><div id="byCategory"></div></div>
+  <div class="card"><h3>Par compte 445</h3><div id="byAccount"></div></div>
+  <div class="card"><h3>Anomalies</h3><div id="anomalies"></div></div>
+  <div class="card"><h3>Analyse clients</h3><div id="clients"></div></div>
 
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
     const state = { vat: [], gl: [], mapping: [], result: null };
-
     const aliases = {
-      company: ['company_id','organization_id','entity_id'],
-      periodStart: ['period_start','from_date','fiscal_period_start'],
-      periodEnd: ['period_end','to_date','fiscal_period_end'],
-      declared: ['declared_amount','net_vat_due','amount_due','vat_payable'],
-      form: ['form_type','tax_form','form_name'],
-      status: ['status'],
-      account: ['account_number','general_account_number'],
-      date: ['entry_date','accounting_date','posting_date'],
-      debit: ['debit'],
-      credit: ['credit'],
-      journal: ['journal_code','journal_name'],
-      invoice: ['invoice_number'],
-      tier: ['customer_name','third_party_name'],
-      tierId: ['customer_id','counterparty_id']
+      company:['company_id','organization_id','entity_id'], periodStart:['period_start','from_date','fiscal_period_start'],
+      periodEnd:['period_end','to_date','fiscal_period_end'], declared:['declared_amount','net_vat_due','amount_due','vat_payable'],
+      form:['form_type','tax_form','form_name'], account:['account_number','general_account_number'], date:['entry_date','accounting_date','posting_date'],
+      debit:['debit'], credit:['credit'], journal:['journal_code','journal_name'], invoice:['invoice_number'], tier:['customer_name','third_party_name'], tierId:['customer_id','counterparty_id']
     };
 
-    function findKey(row, choices){
-      const keys = Object.keys(row || {});
-      const lower = Object.fromEntries(keys.map(k => [k.toLowerCase(), k]));
-      for(const c of choices){ if(lower[c.toLowerCase()]) return lower[c.toLowerCase()]; }
-      return null;
+    const today = new Date().toISOString().slice(0,10);
+    document.getElementById('periodEnd').value = today;
+    document.getElementById('periodStart').value = today.slice(0,8)+'01';
+    document.getElementById('fiscalStart').value = today.slice(0,4)+'-01-01';
+
+    function findKey(row, choices){ const m=Object.fromEntries(Object.keys(row||{}).map(k=>[k.toLowerCase(),k])); for(const c of choices){if(m[c.toLowerCase()]) return m[c.toLowerCase()];} return null; }
+    function parseCsv(file){ return new Promise((res,rej)=>Papa.parse(file,{header:true,skipEmptyLines:true,complete:r=>res(r.data),error:rej})); }
+    function num(v){ const n=parseFloat(String(v??'').replace(',','.')); return isNaN(n)?0:n; }
+    function toDate(v){ const d=new Date(v); return isNaN(d)?null:d; }
+
+    function normalizeApiArray(payload){
+      if(Array.isArray(payload)) return payload;
+      if(payload && Array.isArray(payload.data)) return payload.data;
+      if(payload && Array.isArray(payload.items)) return payload.items;
+      return [];
     }
 
-    function parseCsv(file){
-      return new Promise((resolve,reject)=>{
-        Papa.parse(file,{header:true,skipEmptyLines:true,complete:r=>resolve(r.data),error:reject});
-      });
-    }
-
-    function toDate(v){ const d = new Date(v); return isNaN(d) ? null : d; }
-    function num(v){ const n = parseFloat(String(v||'').replace(',','.')); return isNaN(n)?0:n; }
-
-    function renderTable(elId, rows){
-      const el = document.getElementById(elId);
-      if(!rows || !rows.length){ el.innerHTML = '<i>Aucune donnée</i>'; return; }
-      const cols = Object.keys(rows[0]);
-      let html = '<table><thead><tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr></thead><tbody>';
-      rows.forEach(r=>{ html += '<tr>'+cols.map(c=>`<td>${r[c]??''}</td>`).join('')+'</tr>'; });
-      html += '</tbody></table>';
-      el.innerHTML = html;
-    }
-
-    function groupSum(rows, key, value){
-      const m = new Map();
-      rows.forEach(r=>m.set(r[key], (m.get(r[key])||0)+num(r[value])));
-      return [...m.entries()].map(([k,v])=>({[key]:k,[value]:+v.toFixed(2)}));
+    async function apiGet(path, params={}){
+      const base=document.getElementById('apiBase').value.trim();
+      const key=document.getElementById('apiKey').value.trim();
+      if(!base || !key) throw new Error('Base URL API et API Key obligatoires.');
+      const u=new URL(path.replace(/^\/+/,''), base.endsWith('/')?base:base+'/');
+      Object.entries(params).forEach(([k,v])=>{ if(v!==undefined && v!==null && v!=='') u.searchParams.set(k,v); });
+      const r=await fetch(u.toString(),{headers:{'Authorization':`Bearer ${key}`,'Content-Type':'application/json'}});
+      if(!r.ok) throw new Error(`API ${u.pathname} -> HTTP ${r.status}`);
+      return r.json();
     }
 
     function defaultMapping(){
@@ -124,159 +129,109 @@
       ];
     }
 
+    function renderTable(id,rows){
+      const el=document.getElementById(id); if(!rows?.length){el.innerHTML='<i>Aucune donnée</i>';return;}
+      const cols=Object.keys(rows[0]); let h='<table><thead><tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr></thead><tbody>';
+      rows.forEach(r=>h+='<tr>'+cols.map(c=>`<td>${r[c]??''}</td>`).join('')+'</tr>'); h+='</tbody></table>'; el.innerHTML=h;
+    }
+
+    function loadCompanies(){
+      if(!state.vat.length){ alert('Aucune donnée TVA chargée'); return; }
+      const k=findKey(state.vat[0], aliases.company); if(!k){ alert('Colonne société introuvable'); return; }
+      const companies=[...new Set(state.vat.map(r=>String(r[k]||'')).filter(Boolean))].sort();
+      const sel=document.getElementById('company'); sel.innerHTML='';
+      companies.forEach(c=>{const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o);});
+      if(!companies.length) alert('Aucune société détectée');
+    }
+
+    async function loadCsv(){
+      const vf=document.getElementById('vatFile').files[0], gf=document.getElementById('glFile').files[0], mf=document.getElementById('mapFile').files[0];
+      if(!vf || !gf){ alert('Chargez vat_declarations.csv et general_ledger.csv'); return; }
+      state.vat=await parseCsv(vf); state.gl=await parseCsv(gf); state.mapping=mf?await parseCsv(mf):[];
+      loadCompanies(); alert('Fichiers CSV chargés.');
+    }
+
+    async function loadApi(){
+      try{
+        const epC=document.getElementById('epCompanies').value.trim()||'/companies';
+        const epV=document.getElementById('epVat').value.trim()||'/vat_declarations';
+        const epG=document.getElementById('epGl').value.trim()||'/general_ledger';
+        const epM=document.getElementById('epMap').value.trim();
+        const cPayload=await apiGet(epC);
+        const companies=normalizeApiArray(cPayload);
+        const idKey=companies[0] ? (findKey(companies[0], aliases.company) || 'company_id') : 'company_id';
+        if(!companies.length){ throw new Error('Aucune société retournée par l’API.'); }
+
+        const selectedCompany = String(companies[0][idKey]);
+        const ps=document.getElementById('periodStart').value, pe=document.getElementById('periodEnd').value, fs=document.getElementById('fiscalStart').value;
+        state.vat = normalizeApiArray(await apiGet(epV, {company_id:selectedCompany, period_start:fs, period_end:pe}));
+        state.gl  = normalizeApiArray(await apiGet(epG, {company_id:selectedCompany, period_start:fs, period_end:pe}));
+        state.mapping = epM ? normalizeApiArray(await apiGet(epM, {company_id:selectedCompany})) : [];
+
+        if(!state.mapping.length) state.mapping = defaultMapping();
+        loadCompanies();
+        alert('Données API chargées. Vous pouvez changer la société et lancer le cadrage.');
+      }catch(e){ alert('Erreur API: '+e.message); }
+    }
+
     function runCadrage(){
-      const company = document.getElementById('company').value;
-      const ps = toDate(document.getElementById('periodStart').value);
-      const pe = toDate(document.getElementById('periodEnd').value);
-      const fs = toDate(document.getElementById('fiscalStart').value);
-      if(!company || !ps || !pe || !fs){ alert('Renseignez société + dates'); return; }
+      const company=document.getElementById('company').value, ps=toDate(document.getElementById('periodStart').value), pe=toDate(document.getElementById('periodEnd').value), fs=toDate(document.getElementById('fiscalStart').value);
+      if(!company||!ps||!pe||!fs){ alert('Renseignez société + dates'); return; }
+      if(!state.vat.length || !state.gl.length){ alert('Chargez les données avant le cadrage'); return; }
 
-      const vd0 = state.vat[0] || {}, gl0 = state.gl[0] || {};
-      const vdCompany = findKey(vd0, aliases.company), vdPs = findKey(vd0, aliases.periodStart), vdPe = findKey(vd0, aliases.periodEnd), vdDecl = findKey(vd0, aliases.declared), vdForm = findKey(vd0, aliases.form);
-      const glCompany = findKey(gl0, aliases.company), glDate = findKey(gl0, aliases.date), glAcc = findKey(gl0, aliases.account), glDebit = findKey(gl0, aliases.debit), glCredit = findKey(gl0, aliases.credit), glJournal = findKey(gl0, aliases.journal), glInvoice = findKey(gl0, aliases.invoice), glTier = findKey(gl0, aliases.tier), glTierId = findKey(gl0, aliases.tierId);
+      const vd0=state.vat[0], gl0=state.gl[0];
+      const vdCompany=findKey(vd0,aliases.company), vdPs=findKey(vd0,aliases.periodStart), vdPe=findKey(vd0,aliases.periodEnd), vdDecl=findKey(vd0,aliases.declared), vdForm=findKey(vd0,aliases.form);
+      const glCompany=findKey(gl0,aliases.company), glDate=findKey(gl0,aliases.date), glAcc=findKey(gl0,aliases.account), glDebit=findKey(gl0,aliases.debit), glCredit=findKey(gl0,aliases.credit), glJournal=findKey(gl0,aliases.journal), glInvoice=findKey(gl0,aliases.invoice), glTier=findKey(gl0,aliases.tier), glTierId=findKey(gl0,aliases.tierId);
+      if(!vdCompany||!vdPs||!vdPe||!vdDecl||!glCompany||!glDate||!glAcc){ alert('Colonnes minimales introuvables'); return; }
 
-      if(!vdCompany||!vdPs||!vdPe||!vdDecl||!glCompany||!glDate||!glAcc){
-        alert('Colonnes minimales non trouvées dans les CSV.');
-        return;
-      }
-
-      const mapRows = (state.mapping.length ? state.mapping : defaultMapping())
-        .filter(m => String(m.is_active ?? 'true').toLowerCase() !== 'false');
-
-      const vdPeriod = state.vat.filter(r => String(r[vdCompany])===company && toDate(r[vdPs])>=ps && toDate(r[vdPe])<=pe);
-      const vdYtd = state.vat.filter(r => String(r[vdCompany])===company && toDate(r[vdPs])>=fs && toDate(r[vdPe])<=pe);
-      const declaredPeriod = vdPeriod.reduce((a,r)=>a+num(r[vdDecl]),0);
-      const declaredYtd = vdYtd.reduce((a,r)=>a+num(r[vdDecl]),0);
-      const formType = vdPeriod[0]?.[vdForm] || 'N/A';
-
-      const glPeriodRaw = state.gl.filter(r => String(r[glCompany])===company && toDate(r[glDate])>=ps && toDate(r[glDate])<=pe && String(r[glAcc]||'').startsWith('445'));
-      const glYtdRaw = state.gl.filter(r => String(r[glCompany])===company && toDate(r[glDate])>=fs && toDate(r[glDate])<=pe && String(r[glAcc]||'').startsWith('445'));
+      const mapRows=(state.mapping.length?state.mapping:defaultMapping()).filter(m=>String(m.is_active??'true').toLowerCase()!=='false');
+      const vdPeriod=state.vat.filter(r=>String(r[vdCompany])===company && toDate(r[vdPs])>=ps && toDate(r[vdPe])<=pe);
+      const vdYtd=state.vat.filter(r=>String(r[vdCompany])===company && toDate(r[vdPs])>=fs && toDate(r[vdPe])<=pe);
+      const declaredPeriod=vdPeriod.reduce((a,r)=>a+num(r[vdDecl]),0), declaredYtd=vdYtd.reduce((a,r)=>a+num(r[vdDecl]),0), formType=vdPeriod[0]?.[vdForm]||'N/A';
+      const glPeriod=state.gl.filter(r=>String(r[glCompany])===company && toDate(r[glDate])>=ps && toDate(r[glDate])<=pe && String(r[glAcc]||'').startsWith('445'));
+      const glYtd=state.gl.filter(r=>String(r[glCompany])===company && toDate(r[glDate])>=fs && toDate(r[glDate])<=pe && String(r[glAcc]||'').startsWith('445'));
 
       function classify(rows){
         return rows.map(r=>{
-          const acc = String(r[glAcc]||'');
-          const ms = mapRows.filter(m => (m.company_id===company || m.company_id==='__DEFAULT__') && acc.startsWith(String(m.account_prefix||'')))
-                           .sort((a,b)=>(+a.priority||999)-(+b.priority||999) || String(b.account_prefix).length-String(a.account_prefix).length);
-          const m = ms[0];
-          const debit = num(r[glDebit]), credit = num(r[glCredit]), net = debit-credit;
-          let normalized = net, cat='UNMAPPED';
-          if(m){
-            cat = m.vat_category || 'UNMAPPED';
-            const dir = String(m.direction||'NET').toUpperCase();
-            normalized = (dir==='DEBIT'?debit:(dir==='CREDIT'?credit:net)) * (+m.sign_factor||1);
-          }
-          return {
-            company_id: company,
-            entry_date: r[glDate],
-            account_number: acc,
-            debit:+debit.toFixed(2), credit:+credit.toFixed(2), net_amount:+net.toFixed(2),
-            journal_code: glJournal ? (r[glJournal]||'') : '',
-            invoice_number: glInvoice ? (r[glInvoice]||'') : '',
-            tier_name: glTier ? (r[glTier]||'TIERS_NON_RENSEIGNE') : 'TIERS_NON_RENSEIGNE',
-            tier_id: glTierId ? (r[glTierId]||'') : '',
-            vat_category: cat,
-            normalized_amount:+normalized.toFixed(2)
-          }
+          const acc=String(r[glAcc]||''), debit=num(r[glDebit]), credit=num(r[glCredit]), net=debit-credit;
+          const m=mapRows.filter(x=>(x.company_id===company||x.company_id==='__DEFAULT__') && acc.startsWith(String(x.account_prefix||''))).sort((a,b)=>(+a.priority||999)-(+b.priority||999)||String(b.account_prefix).length-String(a.account_prefix).length)[0];
+          let cat='UNMAPPED', normalized=net;
+          if(m){ cat=m.vat_category||'UNMAPPED'; const dir=String(m.direction||'NET').toUpperCase(); normalized=(dir==='DEBIT'?debit:(dir==='CREDIT'?credit:net))*(+m.sign_factor||1); }
+          return {company_id:company,entry_date:r[glDate],account_number:acc,debit:+debit.toFixed(2),credit:+credit.toFixed(2),net_amount:+net.toFixed(2),journal_code:glJournal?(r[glJournal]||''):'',invoice_number:glInvoice?(r[glInvoice]||''):'',tier_name:glTier?(r[glTier]||'TIERS_NON_RENSEIGNE'):'TIERS_NON_RENSEIGNE',tier_id:glTierId?(r[glTierId]||''):'',vat_category:cat,normalized_amount:+normalized.toFixed(2)};
         });
       }
 
-      const clPeriod = classify(glPeriodRaw);
-      const clYtd = classify(glYtdRaw);
+      const clP=classify(glPeriod), clY=classify(glYtd);
+      const group=(rows,key,val)=>{const m=new Map();rows.forEach(r=>m.set(r[key],(m.get(r[key])||0)+num(r[val])));return [...m.entries()].map(([k,v])=>({[key]:k,[val]:+v.toFixed(2)}));};
+      const byCategory=group(clP,'vat_category','normalized_amount').sort((a,b)=>String(a.vat_category).localeCompare(String(b.vat_category)));
+      const byAccount=(()=>{const m=new Map();clP.forEach(r=>{if(!m.has(r.account_number))m.set(r.account_number,{account_number:r.account_number,total_debit:0,total_credit:0,net_balance:0});const x=m.get(r.account_number);x.total_debit+=r.debit;x.total_credit+=r.credit;x.net_balance+=r.net_amount;});return [...m.values()].map(x=>({...x,total_debit:+x.total_debit.toFixed(2),total_credit:+x.total_credit.toFixed(2),net_balance:+x.net_balance.toFixed(2)}));})();
+      const cat=(arr,n)=>arr.find(x=>x.vat_category===n)?.normalized_amount||0;
+      const vatTheoP=cat(byCategory,'COLLECTEE')-(cat(byCategory,'DED_ABS')+cat(byCategory,'DED_IMMO'))+cat(byCategory,'DUE_AUTOLIQ')-cat(byCategory,'DED_AUTOLIQ')-cat(byCategory,'CREDIT_ANTERIEUR')+cat(byCategory,'REGULARISATION_TVA');
+      const byCategoryY=group(clY,'vat_category','normalized_amount');
+      const vatTheoY=cat(byCategoryY,'COLLECTEE')-(cat(byCategoryY,'DED_ABS')+cat(byCategoryY,'DED_IMMO'))+cat(byCategoryY,'DUE_AUTOLIQ')-cat(byCategoryY,'DED_AUTOLIQ')-cat(byCategoryY,'CREDIT_ANTERIEUR')+cat(byCategoryY,'REGULARISATION_TVA');
 
-      const byCategory = groupSum(clPeriod,'vat_category','normalized_amount').sort((a,b)=>String(a.vat_category).localeCompare(String(b.vat_category)));
-      const byAccount = (()=>{
-        const m = new Map();
-        clPeriod.forEach(r=>{
-          if(!m.has(r.account_number)) m.set(r.account_number,{account_number:r.account_number,total_debit:0,total_credit:0,net_balance:0});
-          const x = m.get(r.account_number); x.total_debit+=r.debit; x.total_credit+=r.credit; x.net_balance+=r.net_amount;
-        });
-        return [...m.values()].map(x=>({...x,total_debit:+x.total_debit.toFixed(2),total_credit:+x.total_credit.toFixed(2),net_balance:+x.net_balance.toFixed(2)}))
-          .sort((a,b)=>String(a.account_number).localeCompare(String(b.account_number)));
-      })();
+      const anomalies=clP.map(r=>{let issue='OK'; if(r.vat_category==='UNMAPPED') issue='UNMAPPED_445'; if(r.journal_code==='OD'&&Math.abs(r.net_amount)>=1000) issue='OD_HIGH_RISK'; if(r.account_number.startsWith('44571')&&r.debit>r.credit) issue='COLLECTEE_SIGN_INVERTED'; if(r.account_number.startsWith('44566')&&r.credit>r.debit) issue='DEDUCTIBLE_SIGN_INVERTED'; if(!r.invoice_number&&Math.abs(r.net_amount)>500) issue='NO_INVOICE_REFERENCE'; const score={UNMAPPED_445:100,OD_HIGH_RISK:90,COLLECTEE_SIGN_INVERTED:85,DEDUCTIBLE_SIGN_INVERTED:85,NO_INVOICE_REFERENCE:70,OK:0}[issue]||50; return {...r,issue_code:issue,anomaly_score:score};}).filter(r=>r.issue_code!=='OK').sort((a,b)=>b.anomaly_score-a.anomaly_score);
+      const clients=(()=>{const rows=clP.filter(r=>r.account_number.startsWith('44571'));const m=new Map();rows.forEach(r=>{const k=`${r.tier_id}|${r.tier_name}`;if(!m.has(k))m.set(k,{tier_id:r.tier_id,tier_name:r.tier_name,vat_collectee_period:0});m.get(k).vat_collectee_period+=r.normalized_amount;});const out=[...m.values()].sort((a,b)=>b.vat_collectee_period-a.vat_collectee_period);const tot=out.reduce((a,r)=>a+r.vat_collectee_period,0)||1;return out.map(r=>({...r,vat_collectee_period:+r.vat_collectee_period.toFixed(2),share_pct:+(100*r.vat_collectee_period/tot).toFixed(2)}));})();
 
-      const cat = (arr,name)=>arr.find(x=>x.vat_category===name)?.normalized_amount || 0;
-      const vatTheoPeriod = cat(byCategory,'COLLECTEE')-(cat(byCategory,'DED_ABS')+cat(byCategory,'DED_IMMO'))+cat(byCategory,'DUE_AUTOLIQ')-cat(byCategory,'DED_AUTOLIQ')-cat(byCategory,'CREDIT_ANTERIEUR')+cat(byCategory,'REGULARISATION_TVA');
-      const ytdCat = groupSum(clYtd,'vat_category','normalized_amount');
-      const vatTheoYtd = cat(ytdCat,'COLLECTEE')-(cat(ytdCat,'DED_ABS')+cat(ytdCat,'DED_IMMO'))+cat(ytdCat,'DUE_AUTOLIQ')-cat(ytdCat,'DED_AUTOLIQ')-cat(ytdCat,'CREDIT_ANTERIEUR')+cat(ytdCat,'REGULARISATION_TVA');
+      const summary=[{company_id:company,period_start:document.getElementById('periodStart').value,period_end:document.getElementById('periodEnd').value,fiscal_year_start:document.getElementById('fiscalStart').value,form_type:formType,declared_amount_period:+declaredPeriod.toFixed(2),vat_theoretical_period:+vatTheoP.toFixed(2),cadrage_gap_period:+(declaredPeriod-vatTheoP).toFixed(2),declared_amount_ytd:+declaredYtd.toFixed(2),vat_theoretical_ytd:+vatTheoY.toFixed(2),cadrage_gap_ytd:+(declaredYtd-vatTheoY).toFixed(2),anomaly_count_line_level:anomalies.length,anomaly_amount_line_level:+anomalies.reduce((a,r)=>a+Math.abs(r.net_amount),0).toFixed(2)}];
+      state.result={summary,byCategory,byAccount,anomalies,clients,classified:clP};
 
-      const anomalies = clPeriod.map(r=>{
-        let issue='OK';
-        if(r.vat_category==='UNMAPPED') issue='UNMAPPED_445';
-        if(r.journal_code==='OD' && Math.abs(r.net_amount)>=1000) issue='OD_HIGH_RISK';
-        if(r.account_number.startsWith('44571') && r.debit>r.credit) issue='COLLECTEE_SIGN_INVERTED';
-        if(r.account_number.startsWith('44566') && r.credit>r.debit) issue='DEDUCTIBLE_SIGN_INVERTED';
-        if(!r.invoice_number && Math.abs(r.net_amount)>500) issue='NO_INVOICE_REFERENCE';
-        const score = {UNMAPPED_445:100,OD_HIGH_RISK:90,COLLECTEE_SIGN_INVERTED:85,DEDUCTIBLE_SIGN_INVERTED:85,NO_INVOICE_REFERENCE:70,OK:0}[issue] || 50;
-        return {...r,issue_code:issue,anomaly_score:score};
-      }).filter(r=>r.issue_code!=='OK').sort((a,b)=>b.anomaly_score-a.anomaly_score||Math.abs(b.net_amount)-Math.abs(a.net_amount));
-
-      const clients = (()=>{
-        const rows = clPeriod.filter(r=>r.account_number.startsWith('44571'));
-        const m = new Map();
-        rows.forEach(r=>{
-          const k=`${r.tier_id}|${r.tier_name}`;
-          if(!m.has(k)) m.set(k,{tier_id:r.tier_id,tier_name:r.tier_name,vat_collectee_period:0});
-          m.get(k).vat_collectee_period += r.normalized_amount;
-        });
-        const out=[...m.values()].sort((a,b)=>b.vat_collectee_period-a.vat_collectee_period);
-        const total=out.reduce((a,r)=>a+r.vat_collectee_period,0) || 1;
-        return out.map(r=>({...r,vat_collectee_period:+r.vat_collectee_period.toFixed(2),share_pct:+(100*r.vat_collectee_period/total).toFixed(2)}));
-      })();
-
-      const summary=[{
-        company_id:company, period_start:document.getElementById('periodStart').value, period_end:document.getElementById('periodEnd').value,
-        fiscal_year_start:document.getElementById('fiscalStart').value, form_type:formType,
-        declared_amount_period:+declaredPeriod.toFixed(2), vat_theoretical_period:+vatTheoPeriod.toFixed(2), cadrage_gap_period:+(declaredPeriod-vatTheoPeriod).toFixed(2),
-        declared_amount_ytd:+declaredYtd.toFixed(2), vat_theoretical_ytd:+vatTheoYtd.toFixed(2), cadrage_gap_ytd:+(declaredYtd-vatTheoYtd).toFixed(2),
-        anomaly_count_line_level:anomalies.length, anomaly_amount_line_level:+anomalies.reduce((a,r)=>a+Math.abs(r.net_amount),0).toFixed(2)
-      }];
-
-      state.result = {summary,byCategory,byAccount,anomalies,clients,classified:clPeriod};
-
-      renderTable('summary', summary);
-      renderTable('byCategory', byCategory);
-      renderTable('byAccount', byAccount);
-      renderTable('anomalies', anomalies);
-      renderTable('clients', clients);
-
-      document.getElementById('kpiGapPeriod').textContent = summary[0].cadrage_gap_period.toFixed(2);
-      document.getElementById('kpiGapYtd').textContent = summary[0].cadrage_gap_ytd.toFixed(2);
-      document.getElementById('kpiAnom').textContent = summary[0].anomaly_count_line_level;
+      renderTable('summary',summary); renderTable('byCategory',byCategory); renderTable('byAccount',byAccount); renderTable('anomalies',anomalies); renderTable('clients',clients);
+      document.getElementById('kpiGapPeriod').textContent=summary[0].cadrage_gap_period.toFixed(2); document.getElementById('kpiGapYtd').textContent=summary[0].cadrage_gap_ytd.toFixed(2); document.getElementById('kpiAnom').textContent=summary[0].anomaly_count_line_level;
     }
 
-    document.getElementById('loadBtn').addEventListener('click', async ()=>{
-      const vatFile = document.getElementById('vatFile').files[0];
-      const glFile = document.getElementById('glFile').files[0];
-      const mapFile = document.getElementById('mapFile').files[0];
-      if(!vatFile || !glFile){ alert('Chargez vat_declarations.csv et general_ledger.csv'); return; }
-      state.vat = await parseCsv(vatFile);
-      state.gl = await parseCsv(glFile);
-      state.mapping = mapFile ? await parseCsv(mapFile) : [];
-
-      const key = findKey(state.vat[0]||{}, aliases.company);
-      const companies = [...new Set(state.vat.map(r=>String(r[key]||'')).filter(Boolean))].sort();
-      const sel = document.getElementById('company'); sel.innerHTML='';
-      companies.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
-
-      const today = new Date().toISOString().slice(0,10);
-      document.getElementById('periodEnd').value = today;
-      document.getElementById('periodStart').value = today.slice(0,8)+'01';
-      document.getElementById('fiscalStart').value = today.slice(0,4)+'-01-01';
-      alert('Fichiers chargés.');
-    });
-
+    document.querySelectorAll('input[name="sourceMode"]').forEach(r=>r.addEventListener('change',()=>{
+      const api = document.querySelector('input[name="sourceMode"]:checked').value==='api';
+      document.getElementById('apiBox').style.display = api ? 'block' : 'none';
+      document.getElementById('csvBox').style.display = api ? 'none' : 'block';
+    }));
+    document.getElementById('loadCsvBtn').addEventListener('click', loadCsv);
+    document.getElementById('loadApiBtn').addEventListener('click', loadApi);
     document.getElementById('runBtn').addEventListener('click', runCadrage);
-
     document.getElementById('exportBtn').addEventListener('click', ()=>{
       if(!state.result){ alert('Lancez le cadrage avant export.'); return; }
-      const wb = XLSX.utils.book_new();
-      const add=(name,rows)=>XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows||[]), name);
-      add('Summary', state.result.summary);
-      add('ByCategory', state.result.byCategory);
-      add('ByAccount445', state.result.byAccount);
-      add('Anomalies', state.result.anomalies);
-      add('ClientAnalysis', state.result.clients);
-      add('ClassifiedLines', state.result.classified);
+      const wb=XLSX.utils.book_new(), add=(n,r)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(r||[]),n);
+      add('Summary',state.result.summary); add('ByCategory',state.result.byCategory); add('ByAccount445',state.result.byAccount); add('Anomalies',state.result.anomalies); add('ClientAnalysis',state.result.clients); add('ClassifiedLines',state.result.classified);
       XLSX.writeFile(wb, `cadrage_tva_${state.result.summary[0].company_id}_${state.result.summary[0].period_end}.xlsx`);
     });
   </script>
