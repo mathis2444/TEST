@@ -1,4 +1,4 @@
-# Cadrage TVA – version Web local (sans Python)
+# Cadrage TVA – Web local (sans Python)
 
 ## Démarrage
 
@@ -12,14 +12,16 @@ Ouvrir `web_local/index.html` dans Chrome/Edge.
 4. Sélectionnez société + période + ouverture exercice.
 5. Lancez le cadrage puis exportez en Excel.
 
-## Mode 2 — API (clé API dans l’UI)
+## Mode 2 — API (clé API mémorisée 1 fois)
 
-1. Saisissez `Base URL API` + `API Key`.
-2. Renseignez les endpoints (companies, vat_declarations, general_ledger).
-3. Cliquez **Charger depuis API**.
-4. Sélectionnez la société puis lancez le cadrage.
+1. Passez en mode API.
+2. Saisissez `Base URL API` + `API Key` + endpoints.
+3. Laissez cochée l’option **Mémoriser la config API (1 seule fois)**.
+4. Cliquez **Enregistrer config API** (stockage `localStorage` navigateur).
+5. Cliquez **Charger sociétés API**, sélectionnez la société, puis **Synchroniser données API**.
+6. Lancez le cadrage et exportez en Excel.
 
-> Note: votre API doit autoriser CORS pour un appel direct depuis le navigateur.
+> Note: l’API doit autoriser CORS pour un appel direct depuis le navigateur.
 
 ## Sorties exportées
 

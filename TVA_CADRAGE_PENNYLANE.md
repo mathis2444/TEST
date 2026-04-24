@@ -1013,6 +1013,7 @@ Un prototype opérationnel a été ajouté :
 Fonctionnalités livrées dans l'app :
 
 1. Ouverture des données via fichiers CSV locaux **ou via API** (clé API saisie dans l'interface).
+   - La configuration API (base URL, clé, endpoints) peut être mémorisée une fois en `localStorage` navigateur.
 2. Paramétrage période + ouverture d'exercice.
 3. Calcul cadrage période et YTD.
 4. Détail par compte 445 et catégorie TVA.
