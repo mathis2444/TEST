@@ -1,0 +1,2 @@
+company_id,declaration_period_start_at,declaration_period_end_at,declaration_amount,declaration_form_name,status,payment_amount
+C1,2026-01-01,2026-01-31,1800.00,CA3,validated,1700.00

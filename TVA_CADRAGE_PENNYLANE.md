@@ -1012,8 +1012,8 @@ Un prototype opérationnel a été ajouté :
 
 Fonctionnalités livrées dans l'app :
 
-1. Ouverture des données via fichiers CSV locaux **ou via API** (clé API saisie dans l'interface).
-   - La configuration API (base URL, clé, endpoints) peut être mémorisée une fois en `localStorage` navigateur.
+1. Ouverture des données via fichiers CSV locaux **ou via API** via proxy backend sécurisé (`/api/pennylane/*`).
+   - La clé API doit rester côté backend et ne jamais être stockée dans le navigateur.
 2. Paramétrage période + ouverture d'exercice.
 3. Calcul cadrage période et YTD.
 4. Détail par compte 445 et catégorie TVA.
@@ -1021,4 +1021,13 @@ Fonctionnalités livrées dans l'app :
 6. Analyse clients.
 7. Export Excel multi-onglets après cadrage.
 8. Centre d'anomalies interactif avec correction rapide utilisateur (actions immédiates + impact sur écart ajusté).
+
+
+## Points non couverts en version POC
+
+- TVA sur marge
+- TVA sur encaissement
+- rapprochement complet avec les lignes CA3
+- gestion avancée des crédits antérieurs
+- contrôle des paiements bancaires
 
