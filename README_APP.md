@@ -1,33 +1,40 @@
 # Cadrage TVA – Web local (sans Python)
 
-## Démarrage
+## Ouverture locale
 
-Ouvrir `web_local/index.html` dans Chrome/Edge.
+1. Double-cliquez `web_local/index.html`.
+2. La page s’ouvre directement dans le navigateur (Chrome/Edge/Firefox).
 
-## Mode 1 — CSV local
+## Mode CSV local
 
 1. Chargez `vat_declarations.csv`.
 2. Chargez `general_ledger.csv`.
-3. (Optionnel) chargez un mapping via `web_local/mapping_template.csv`.
+3. (Optionnel) chargez `web_local/mapping_template.csv`.
 4. Sélectionnez société + période + ouverture exercice.
-5. Lancez le cadrage puis exportez en Excel.
+5. Cliquez **Lancer le cadrage**.
 
-## Mode 2 — API (clé API mémorisée 1 fois)
+## Mode API (clé API saisie 1 fois)
 
 1. Passez en mode API.
-2. Saisissez `Base URL API` + `API Key` + endpoints.
-3. Laissez cochée l’option **Mémoriser la config API (1 seule fois)**.
-4. Cliquez **Enregistrer config API** (stockage `localStorage` navigateur).
-5. Cliquez **Charger sociétés API**, sélectionnez la société, puis **Synchroniser données API**.
-6. Lancez le cadrage et exportez en Excel.
+2. Saisissez Base URL + API Key + endpoints.
+3. Cliquez **Enregistrer API** (stocké dans `localStorage`).
+4. Cliquez **Charger sociétés API** puis **Synchroniser API**.
+5. Lancez le cadrage.
 
-> Note: l’API doit autoriser CORS pour un appel direct depuis le navigateur.
+## Correction rapide des anomalies
 
-## Sorties exportées
+- Utilisez le **Centre d'anomalies** pour filtrer les lignes.
+- Choisissez une action rapide (`EXCLUDE_LINE`, `SIGN_INVERT`, `REMAP_*`).
+- Cliquez **Corriger** sur la ligne concernée.
+- Le KPI **Écart ajusté** se met à jour immédiatement.
 
+## Export Excel
+
+Cliquez **Export Excel** pour générer :
 - Summary
 - ByCategory
 - ByAccount445
 - Anomalies
 - ClientAnalysis
+- Corrections
 - ClassifiedLines

@@ -3,36 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cadrage TVA - Web local</title>
+  <title>Cadrage TVA - Local</title>
   <style>
-    :root{--bg:#f6f8fc;--card:#fff;--line:#dde3ef;--primary:#1f6feb;--ok:#1a7f37;--warn:#9a6700}
-    body{font-family:Inter,Arial,sans-serif;margin:20px;background:var(--bg);color:#1f2328}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+    :root{--bg:#f5f7fb;--card:#fff;--line:#dde3ef;--txt:#1f2937;--pri:#1f6feb;--ok:#137333;--warn:#b45309;--danger:#b42318}
+    *{box-sizing:border-box} body{margin:18px;font-family:Inter,Arial,sans-serif;background:var(--bg);color:var(--txt)}
     h1,h2,h3{margin:0 0 8px 0}.muted{font-size:12px;color:#667085}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
     .grid{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:10px}
     .grid2{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:10px}
-    input,select,button{padding:9px;border:1px solid #b8c2d6;border-radius:8px;width:100%;box-sizing:border-box}
-    button{cursor:pointer;background:var(--primary);color:#fff;border:none;font-weight:600}
-    button.secondary{background:#eef3ff;color:#234}
     .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .tabs button{width:auto;padding:8px 12px}
+    input,select,button{width:100%;padding:9px;border:1px solid #bcc7db;border-radius:8px}
+    button{background:var(--pri);color:#fff;border:none;font-weight:600;cursor:pointer}
+    button.secondary{background:#eef3ff;color:#234} button.danger{background:var(--danger)}
+    .tabs button{width:auto}
     .hidden{display:none}
-    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-    .kpi{background:#edf3ff;border:1px solid #d7e2ff;border-radius:10px;padding:10px}
+    .status{padding:9px 12px;border-radius:8px;border:1px solid #d8e3fb;background:#eef4ff}
+    .status.ok{border-color:#b9e2c7;background:#ecfbf1}.status.warn{border-color:#f0d7ad;background:#fff8ef}
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.kpi{background:#edf3ff;border:1px solid #d7e2ff;border-radius:10px;padding:10px}
     table{border-collapse:collapse;width:100%;font-size:12px;background:#fff}
-    th,td{border:1px solid #dfe3eb;padding:6px} th{background:#f2f6ff}
-    .status{padding:9px 12px;border-radius:8px;border:1px solid #c5d2f5;background:#eef4ff}
-    .status.ok{border-color:#b4e0c0;background:#ecfdf3}
-    .status.warn{border-color:#f4d9a8;background:#fff9ef}
+    th,td{border:1px solid #e3e8f2;padding:6px;vertical-align:top} th{background:#f3f6ff;position:sticky;top:0}
+    .tbl{max-height:320px;overflow:auto;border:1px solid #e3e8f2;border-radius:8px}
+    .tag{display:inline-block;padding:2px 6px;border-radius:999px;font-size:11px}
+    .tag.red{background:#fdecea;color:#b42318}.tag.orange{background:#fff4e5;color:#b45309}.tag.green{background:#e8f7ed;color:#137333}
   </style>
 </head>
 <body>
-  <h1>📊 Cadrage TVA – Web local</h1>
-  <div class="muted">Sans Python • CSV local ou API • Export Excel.</div>
+  <h1>🚀 Cadrage TVA Boosté – Local (HTML/CSS/JS)</h1>
+  <div class="muted">Ouvrez directement ce fichier en local dans le navigateur. Aucun backend requis.</div>
 
   <div class="card">
-    <h2>1) Source</h2>
-    <div class="tabs row" style="margin-bottom:10px">
+    <h2>1) Source des données</h2>
+    <div class="tabs row" style="margin-bottom:8px">
       <button id="tabCsv" class="secondary">Mode CSV</button>
       <button id="tabApi" class="secondary">Mode API</button>
     </div>
@@ -55,238 +56,295 @@
         <div><label>Endpoint GL</label><input id="epGl" value="/general_ledger" /></div>
         <div><label>Endpoint mapping (optionnel)</label><input id="epMap" placeholder="/vat_account_mapping" /></div>
       </div>
-      <div class="row" style="margin-top:10px">
-        <label><input id="rememberApi" type="checkbox" checked style="width:auto" /> Mémoriser la config API (1 seule fois)</label>
+      <div class="row" style="margin-top:8px">
+        <label><input id="rememberApi" type="checkbox" checked style="width:auto"/> Mémoriser API une seule fois (localStorage)</label>
       </div>
-      <div class="row" style="margin-top:10px">
-        <button id="saveApiBtn" class="secondary">💾 Enregistrer config API</button>
+      <div class="row" style="margin-top:8px">
+        <button id="saveApiBtn" class="secondary">💾 Enregistrer API</button>
         <button id="loadCompaniesBtn">Charger sociétés API</button>
-        <button id="syncApiBtn" class="secondary">Synchroniser données API</button>
+        <button id="syncApiBtn" class="secondary">Synchroniser API</button>
       </div>
-      <div class="muted">Headers: Authorization Bearer + Content-Type application/json. CORS requis côté API.</div>
+      <div class="muted">Headers: Authorization Bearer + JSON. CORS requis côté API.</div>
     </div>
   </div>
 
   <div class="card">
-    <h2>2) Dossier</h2>
+    <h2>2) Dossier & Exécution</h2>
     <div class="grid">
       <div><label>Société</label><select id="company"></select></div>
       <div><label>Début période</label><input id="periodStart" type="date" /></div>
       <div><label>Fin période</label><input id="periodEnd" type="date" /></div>
       <div><label>Ouverture exercice</label><input id="fiscalStart" type="date" /></div>
     </div>
-    <div style="margin-top:10px" class="row">
+    <div class="row" style="margin-top:10px">
       <button id="runBtn">Lancer le cadrage</button>
       <button id="exportBtn" class="secondary">📥 Export Excel</button>
+      <button id="resetCorrectionsBtn" class="danger">Réinitialiser corrections</button>
     </div>
   </div>
 
-  <div id="status" class="status warn">Prêt. Chargez des données CSV ou API.</div>
+  <div id="status" class="status warn">Prêt. Chargez des données.</div>
 
   <div class="card">
-    <h2>3) Résultats</h2>
+    <h2>3) KPI</h2>
     <div class="kpis">
-      <div class="kpi"><strong>Écart période</strong><div id="kpiGapPeriod">-</div></div>
+      <div class="kpi"><strong>Écart période (brut)</strong><div id="kpiGapPeriod">-</div></div>
       <div class="kpi"><strong>Écart YTD</strong><div id="kpiGapYtd">-</div></div>
       <div class="kpi"><strong>Anomalies</strong><div id="kpiAnom">-</div></div>
+      <div class="kpi"><strong>Écart ajusté</strong><div id="kpiGapAdjusted">-</div></div>
     </div>
+  </div>
+
+  <div class="card">
+    <h2>4) Centre d'anomalies (correction rapide)</h2>
+    <div class="grid">
+      <div>
+        <label>Filtre issue_code</label>
+        <select id="issueFilter">
+          <option value="ALL">ALL</option>
+          <option>UNMAPPED_445</option>
+          <option>OD_HIGH_RISK</option>
+          <option>COLLECTEE_SIGN_INVERTED</option>
+          <option>DEDUCTIBLE_SIGN_INVERTED</option>
+          <option>NO_INVOICE_REFERENCE</option>
+        </select>
+      </div>
+      <div>
+        <label>Montant absolu min</label>
+        <input id="amountFilter" type="number" value="0" step="0.01" />
+      </div>
+      <div>
+        <label>Action rapide</label>
+        <select id="quickAction">
+          <option value="">--</option>
+          <option value="EXCLUDE_LINE">Exclure la ligne</option>
+          <option value="SIGN_INVERT">Inverser le signe</option>
+          <option value="REMAP_COLLECTEE">Remap -> COLLECTEE</option>
+          <option value="REMAP_DED_ABS">Remap -> DED_ABS</option>
+          <option value="REMAP_DED_IMMO">Remap -> DED_IMMO</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:end"><button id="applyFilterBtn">Appliquer filtres</button></div>
+    </div>
+    <div class="muted" style="margin:8px 0">Cliquez "Corriger" sur une ligne pour appliquer l'action sélectionnée.</div>
+    <div class="tbl" id="anomaliesTable"></div>
   </div>
 
   <div class="card"><h3>Synthèse</h3><div id="summary"></div></div>
   <div class="card"><h3>Par catégorie TVA</h3><div id="byCategory"></div></div>
   <div class="card"><h3>Par compte 445</h3><div id="byAccount"></div></div>
-  <div class="card"><h3>Anomalies</h3><div id="anomalies"></div></div>
   <div class="card"><h3>Analyse clients</h3><div id="clients"></div></div>
 
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
-    const state = { mode:'csv', vat:[], gl:[], mapping:[], result:null, companiesFromApi:[] };
-    const API_STORAGE_KEY = 'tva_cadrage_api_config_v1';
+    const state={mode:'csv',vat:[],gl:[],mapping:[],result:null,corrections:new Map()};
+    const API_STORAGE_KEY='tva_cadrage_api_config_v2';
+    const aliases={company:['company_id','organization_id','entity_id'],periodStart:['period_start','from_date','fiscal_period_start'],periodEnd:['period_end','to_date','fiscal_period_end'],declared:['declared_amount','net_vat_due','amount_due','vat_payable'],form:['form_type','tax_form','form_name'],account:['account_number','general_account_number'],date:['entry_date','accounting_date','posting_date'],debit:['debit'],credit:['credit'],journal:['journal_code','journal_name'],invoice:['invoice_number'],tier:['customer_name','third_party_name'],tierId:['customer_id','counterparty_id']};
 
-    const aliases = {
-      company:['company_id','organization_id','entity_id'], periodStart:['period_start','from_date','fiscal_period_start'], periodEnd:['period_end','to_date','fiscal_period_end'],
-      declared:['declared_amount','net_vat_due','amount_due','vat_payable'], form:['form_type','tax_form','form_name'], account:['account_number','general_account_number'],
-      date:['entry_date','accounting_date','posting_date'], debit:['debit'], credit:['credit'], journal:['journal_code','journal_name'], invoice:['invoice_number'], tier:['customer_name','third_party_name'], tierId:['customer_id','counterparty_id']
-    };
+    const $=id=>document.getElementById(id);
+    function setStatus(msg,ok=false){$('status').textContent=msg;$('status').className='status '+(ok?'ok':'warn');}
+    function findKey(row,arr){const map=Object.fromEntries(Object.keys(row||{}).map(k=>[k.toLowerCase(),k])); for(const a of arr){if(map[a.toLowerCase()]) return map[a.toLowerCase()];} return null;}
+    function parseCsv(file){return new Promise((res,rej)=>Papa.parse(file,{header:true,skipEmptyLines:true,complete:r=>res(r.data),error:rej}));}
+    const num=v=>{const n=parseFloat(String(v??'').replace(',','.'));return isNaN(n)?0:n;};
+    const dt=v=>{const d=new Date(v);return isNaN(d)?null:d;};
+    const normPayload=p=>Array.isArray(p)?p:(Array.isArray(p?.data)?p.data:(Array.isArray(p?.items)?p.items:[]));
+    const today=()=>new Date().toISOString().slice(0,10);
 
-    function setStatus(msg,type='warn'){ const el=document.getElementById('status'); el.textContent=msg; el.className='status '+(type==='ok'?'ok':'warn'); }
-    function todayInit(){ const t=new Date().toISOString().slice(0,10); periodEnd.value=t; periodStart.value=t.slice(0,8)+'01'; fiscalStart.value=t.slice(0,4)+'-01-01'; }
-    function findKey(row, choices){ const map=Object.fromEntries(Object.keys(row||{}).map(k=>[k.toLowerCase(),k])); for(const c of choices){ if(map[c.toLowerCase()]) return map[c.toLowerCase()]; } return null; }
-    function num(v){ const n=parseFloat(String(v??'').replace(',','.')); return isNaN(n)?0:n; }
-    function toDate(v){ const d=new Date(v); return isNaN(d)?null:d; }
-    function normalizeApiArray(payload){ if(Array.isArray(payload)) return payload; if(payload?.data && Array.isArray(payload.data)) return payload.data; if(payload?.items && Array.isArray(payload.items)) return payload.items; return []; }
-    function parseCsv(file){ return new Promise((res,rej)=>Papa.parse(file,{header:true,skipEmptyLines:true,complete:r=>res(r.data),error:rej})); }
+    function defaultMapping(){return[
+      {company_id:'__DEFAULT__',account_prefix:'44571',vat_category:'COLLECTEE',direction:'CREDIT',sign_factor:1,priority:10,is_active:'true'},
+      {company_id:'__DEFAULT__',account_prefix:'44566',vat_category:'DED_ABS',direction:'DEBIT',sign_factor:1,priority:10,is_active:'true'},
+      {company_id:'__DEFAULT__',account_prefix:'44562',vat_category:'DED_IMMO',direction:'DEBIT',sign_factor:1,priority:10,is_active:'true'},
+      {company_id:'__DEFAULT__',account_prefix:'4452',vat_category:'DUE_AUTOLIQ',direction:'CREDIT',sign_factor:1,priority:20,is_active:'true'},
+      {company_id:'__DEFAULT__',account_prefix:'44558',vat_category:'REGULARISATION_TVA',direction:'NET',sign_factor:1,priority:30,is_active:'true'}
+    ];}
 
-    function defaultMapping(){
-      return [
-        {company_id:'__DEFAULT__',account_prefix:'44571',vat_category:'COLLECTEE',direction:'CREDIT',sign_factor:1,priority:10,is_active:'true'},
-        {company_id:'__DEFAULT__',account_prefix:'44566',vat_category:'DED_ABS',direction:'DEBIT',sign_factor:1,priority:10,is_active:'true'},
-        {company_id:'__DEFAULT__',account_prefix:'44562',vat_category:'DED_IMMO',direction:'DEBIT',sign_factor:1,priority:10,is_active:'true'},
-        {company_id:'__DEFAULT__',account_prefix:'4452',vat_category:'DUE_AUTOLIQ',direction:'CREDIT',sign_factor:1,priority:20,is_active:'true'},
-        {company_id:'__DEFAULT__',account_prefix:'44558',vat_category:'REGULARISATION_TVA',direction:'NET',sign_factor:1,priority:30,is_active:'true'}
-      ];
-    }
-
-    function renderTable(id, rows){
-      const el=document.getElementById(id); if(!rows?.length){el.innerHTML='<i>Aucune donnée</i>'; return;}
+    function renderBasicTable(containerId, rows){
+      const el=$(containerId); if(!rows?.length){el.innerHTML='<i>Aucune donnée</i>'; return;}
       const cols=Object.keys(rows[0]);
-      let html='<table><thead><tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr></thead><tbody>';
-      rows.forEach(r=>html+='<tr>'+cols.map(c=>`<td>${r[c]??''}</td>`).join('')+'</tr>');
-      html+='</tbody></table>'; el.innerHTML=html;
-    }
-
-    function saveApiConfig(){
-      if(!rememberApi.checked){ localStorage.removeItem(API_STORAGE_KEY); setStatus('Mémorisation API désactivée.', 'ok'); return; }
-      const cfg={apiBase:apiBase.value.trim(), apiKey:apiKey.value.trim(), epCompanies:epCompanies.value.trim(), epVat:epVat.value.trim(), epGl:epGl.value.trim(), epMap:epMap.value.trim()};
-      localStorage.setItem(API_STORAGE_KEY, JSON.stringify(cfg));
-      setStatus('Configuration API enregistrée localement.', 'ok');
-    }
-
-    function loadApiConfig(){
-      const raw=localStorage.getItem(API_STORAGE_KEY); if(!raw) return;
-      try{
-        const cfg=JSON.parse(raw);
-        apiBase.value=cfg.apiBase||''; apiKey.value=cfg.apiKey||''; epCompanies.value=cfg.epCompanies||'/companies'; epVat.value=cfg.epVat||'/vat_declarations'; epGl.value=cfg.epGl||'/general_ledger'; epMap.value=cfg.epMap||'';
-        setStatus('Configuration API rechargée depuis le navigateur.', 'ok');
-      }catch{ setStatus('Config API locale invalide.', 'warn'); }
-    }
-
-    async function apiGet(path, params={}){
-      const base=apiBase.value.trim(), key=apiKey.value.trim();
-      if(!base || !key) throw new Error('Base URL API + API Key obligatoires.');
-      const url=new URL(path.replace(/^\/+/,''), base.endsWith('/')?base:base+'/');
-      Object.entries(params).forEach(([k,v])=>{ if(v!=='' && v!==null && v!==undefined) url.searchParams.set(k,v); });
-      const res=await fetch(url.toString(),{headers:{'Authorization':`Bearer ${key}`,'Content-Type':'application/json'}});
-      if(!res.ok) throw new Error(`HTTP ${res.status} sur ${url.pathname}`);
-      return res.json();
-    }
-
-    function fillCompanySelect(companies){
-      const sel=company; sel.innerHTML='';
-      companies.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
-    }
-
-    function detectCompaniesFromVat(){
-      if(!state.vat.length) return [];
-      const k=findKey(state.vat[0], aliases.company); if(!k) return [];
-      return [...new Set(state.vat.map(r=>String(r[k]||'')).filter(Boolean))].sort();
-    }
-
-    async function loadCsv(){
-      try{
-        if(!vatFile.files[0] || !glFile.files[0]) throw new Error('Chargez vat_declarations.csv et general_ledger.csv');
-        state.vat=await parseCsv(vatFile.files[0]);
-        state.gl=await parseCsv(glFile.files[0]);
-        state.mapping=mapFile.files[0]?await parseCsv(mapFile.files[0]):defaultMapping();
-        const companies=detectCompaniesFromVat();
-        fillCompanySelect(companies);
-        setStatus(`CSV chargés (${state.vat.length} lignes TVA, ${state.gl.length} lignes GL).`, 'ok');
-      }catch(e){ setStatus('Erreur CSV: '+e.message, 'warn'); }
-    }
-
-    async function loadCompaniesFromApi(){
-      try{
-        saveApiConfig();
-        const payload=await apiGet(epCompanies.value.trim()||'/companies');
-        const rows=normalizeApiArray(payload);
-        if(!rows.length) throw new Error('Aucune société retournée.');
-        const idKey=findKey(rows[0], aliases.company) || 'company_id';
-        const companies=[...new Set(rows.map(r=>String(r[idKey]||'')).filter(Boolean))].sort();
-        state.companiesFromApi=companies;
-        fillCompanySelect(companies);
-        setStatus(`Sociétés API chargées (${companies.length}).`, 'ok');
-      }catch(e){ setStatus('Erreur API sociétés: '+e.message, 'warn'); }
-    }
-
-    async function syncDataFromApi(){
-      try{
-        saveApiConfig();
-        const c=company.value; if(!c) throw new Error('Sélectionnez une société.');
-        const fs=fiscalStart.value, pe=periodEnd.value;
-        state.vat = normalizeApiArray(await apiGet(epVat.value.trim()||'/vat_declarations', {company_id:c, period_start:fs, period_end:pe}));
-        state.gl  = normalizeApiArray(await apiGet(epGl.value.trim()||'/general_ledger', {company_id:c, period_start:fs, period_end:pe}));
-        const epm=epMap.value.trim();
-        state.mapping = epm ? normalizeApiArray(await apiGet(epm, {company_id:c})) : defaultMapping();
-        if(!state.mapping.length) state.mapping=defaultMapping();
-        setStatus(`Données API synchronisées (${state.vat.length} TVA, ${state.gl.length} GL).`, 'ok');
-      }catch(e){ setStatus('Erreur API données: '+e.message, 'warn'); }
-    }
-
-    function runCadrage(){
-      try{
-        const c=company.value, ps=toDate(periodStart.value), pe=toDate(periodEnd.value), fs=toDate(fiscalStart.value);
-        if(!c || !ps || !pe || !fs) throw new Error('Paramètres dossier incomplets.');
-        if(!state.vat.length || !state.gl.length) throw new Error('Chargez d’abord les données TVA/GL.');
-        const vd0=state.vat[0], gl0=state.gl[0];
-        const vdCompany=findKey(vd0,aliases.company), vdPs=findKey(vd0,aliases.periodStart), vdPe=findKey(vd0,aliases.periodEnd), vdDecl=findKey(vd0,aliases.declared), vdForm=findKey(vd0,aliases.form);
-        const glCompany=findKey(gl0,aliases.company), glDate=findKey(gl0,aliases.date), glAcc=findKey(gl0,aliases.account), glDebit=findKey(gl0,aliases.debit), glCredit=findKey(gl0,aliases.credit), glJournal=findKey(gl0,aliases.journal), glInvoice=findKey(gl0,aliases.invoice), glTier=findKey(gl0,aliases.tier), glTierId=findKey(gl0,aliases.tierId);
-        if(!vdCompany||!vdPs||!vdPe||!vdDecl||!glCompany||!glDate||!glAcc) throw new Error('Colonnes minimales introuvables.');
-
-        const mapRows=(state.mapping.length?state.mapping:defaultMapping()).filter(m=>String(m.is_active??'true').toLowerCase()!=='false');
-        const vdP=state.vat.filter(r=>String(r[vdCompany])===c && toDate(r[vdPs])>=ps && toDate(r[vdPe])<=pe);
-        const vdY=state.vat.filter(r=>String(r[vdCompany])===c && toDate(r[vdPs])>=fs && toDate(r[vdPe])<=pe);
-        const declaredP=vdP.reduce((a,r)=>a+num(r[vdDecl]),0), declaredY=vdY.reduce((a,r)=>a+num(r[vdDecl]),0), formType=vdP[0]?.[vdForm]||'N/A';
-        const glP=state.gl.filter(r=>String(r[glCompany])===c && toDate(r[glDate])>=ps && toDate(r[glDate])<=pe && String(r[glAcc]||'').startsWith('445'));
-        const glY=state.gl.filter(r=>String(r[glCompany])===c && toDate(r[glDate])>=fs && toDate(r[glDate])<=pe && String(r[glAcc]||'').startsWith('445'));
-
-        function classify(rows){
-          return rows.map(r=>{
-            const acc=String(r[glAcc]||''), debit=num(r[glDebit]), credit=num(r[glCredit]), net=debit-credit;
-            const m=mapRows.filter(x=>(x.company_id===c||x.company_id==='__DEFAULT__') && acc.startsWith(String(x.account_prefix||''))).sort((a,b)=>(+a.priority||999)-(+b.priority||999)||String(b.account_prefix).length-String(a.account_prefix).length)[0];
-            let cat='UNMAPPED', normalized=net;
-            if(m){ const dir=String(m.direction||'NET').toUpperCase(); cat=m.vat_category||'UNMAPPED'; normalized=(dir==='DEBIT'?debit:(dir==='CREDIT'?credit:net))*(+m.sign_factor||1); }
-            return {company_id:c,entry_date:r[glDate],account_number:acc,debit:+debit.toFixed(2),credit:+credit.toFixed(2),net_amount:+net.toFixed(2),journal_code:glJournal?(r[glJournal]||''):'',invoice_number:glInvoice?(r[glInvoice]||''):'',tier_name:glTier?(r[glTier]||'TIERS_NON_RENSEIGNE'):'TIERS_NON_RENSEIGNE',tier_id:glTierId?(r[glTierId]||''):'',vat_category:cat,normalized_amount:+normalized.toFixed(2)};
-          });
-        }
-
-        const clP=classify(glP), clY=classify(glY);
-        const group=(rows,key,val)=>{const m=new Map(); rows.forEach(r=>m.set(r[key],(m.get(r[key])||0)+num(r[val]))); return [...m.entries()].map(([k,v])=>({[key]:k,[val]:+v.toFixed(2)}));};
-        const byCategory=group(clP,'vat_category','normalized_amount').sort((a,b)=>String(a.vat_category).localeCompare(String(b.vat_category)));
-        const byAccount=(()=>{const m=new Map();clP.forEach(r=>{if(!m.has(r.account_number))m.set(r.account_number,{account_number:r.account_number,total_debit:0,total_credit:0,net_balance:0});const x=m.get(r.account_number);x.total_debit+=r.debit;x.total_credit+=r.credit;x.net_balance+=r.net_amount;}); return [...m.values()].map(x=>({...x,total_debit:+x.total_debit.toFixed(2),total_credit:+x.total_credit.toFixed(2),net_balance:+x.net_balance.toFixed(2)}));})();
-        const cat=(arr,n)=>arr.find(x=>x.vat_category===n)?.normalized_amount||0;
-        const vatTheoP=cat(byCategory,'COLLECTEE')-(cat(byCategory,'DED_ABS')+cat(byCategory,'DED_IMMO'))+cat(byCategory,'DUE_AUTOLIQ')-cat(byCategory,'DED_AUTOLIQ')-cat(byCategory,'CREDIT_ANTERIEUR')+cat(byCategory,'REGULARISATION_TVA');
-        const byCategoryY=group(clY,'vat_category','normalized_amount');
-        const vatTheoY=cat(byCategoryY,'COLLECTEE')-(cat(byCategoryY,'DED_ABS')+cat(byCategoryY,'DED_IMMO'))+cat(byCategoryY,'DUE_AUTOLIQ')-cat(byCategoryY,'DED_AUTOLIQ')-cat(byCategoryY,'CREDIT_ANTERIEUR')+cat(byCategoryY,'REGULARISATION_TVA');
-        const anomalies=clP.map(r=>{let issue='OK'; if(r.vat_category==='UNMAPPED')issue='UNMAPPED_445'; if(r.journal_code==='OD'&&Math.abs(r.net_amount)>=1000)issue='OD_HIGH_RISK'; if(r.account_number.startsWith('44571')&&r.debit>r.credit)issue='COLLECTEE_SIGN_INVERTED'; if(r.account_number.startsWith('44566')&&r.credit>r.debit)issue='DEDUCTIBLE_SIGN_INVERTED'; if(!r.invoice_number&&Math.abs(r.net_amount)>500)issue='NO_INVOICE_REFERENCE'; const score={UNMAPPED_445:100,OD_HIGH_RISK:90,COLLECTEE_SIGN_INVERTED:85,DEDUCTIBLE_SIGN_INVERTED:85,NO_INVOICE_REFERENCE:70,OK:0}[issue]||50; return {...r,issue_code:issue,anomaly_score:score};}).filter(r=>r.issue_code!=='OK').sort((a,b)=>b.anomaly_score-a.anomaly_score);
-        const clients=(()=>{const rows=clP.filter(r=>r.account_number.startsWith('44571'));const m=new Map();rows.forEach(r=>{const k=`${r.tier_id}|${r.tier_name}`;if(!m.has(k))m.set(k,{tier_id:r.tier_id,tier_name:r.tier_name,vat_collectee_period:0});m.get(k).vat_collectee_period+=r.normalized_amount;});const out=[...m.values()].sort((a,b)=>b.vat_collectee_period-a.vat_collectee_period);const tot=out.reduce((a,r)=>a+r.vat_collectee_period,0)||1; return out.map(r=>({...r,vat_collectee_period:+r.vat_collectee_period.toFixed(2),share_pct:+(100*r.vat_collectee_period/tot).toFixed(2)}));})();
-        const summary=[{company_id:c,period_start:periodStart.value,period_end:periodEnd.value,fiscal_year_start:fiscalStart.value,form_type:formType,declared_amount_period:+declaredP.toFixed(2),vat_theoretical_period:+vatTheoP.toFixed(2),cadrage_gap_period:+(declaredP-vatTheoP).toFixed(2),declared_amount_ytd:+declaredY.toFixed(2),vat_theoretical_ytd:+vatTheoY.toFixed(2),cadrage_gap_ytd:+(declaredY-vatTheoY).toFixed(2),anomaly_count_line_level:anomalies.length,anomaly_amount_line_level:+anomalies.reduce((a,r)=>a+Math.abs(r.net_amount),0).toFixed(2)}];
-
-        state.result={summary,byCategory,byAccount,anomalies,clients,classified:clP};
-        renderTable('summary',summary); renderTable('byCategory',byCategory); renderTable('byAccount',byAccount); renderTable('anomalies',anomalies); renderTable('clients',clients);
-        kpiGapPeriod.textContent=summary[0].cadrage_gap_period.toFixed(2); kpiGapYtd.textContent=summary[0].cadrage_gap_ytd.toFixed(2); kpiAnom.textContent=summary[0].anomaly_count_line_level;
-        setStatus('Cadrage calculé avec succès.', 'ok');
-      }catch(e){ setStatus('Erreur cadrage: '+e.message, 'warn'); }
-    }
-
-    function exportExcel(){
-      if(!state.result){ setStatus('Lancez d’abord le cadrage.', 'warn'); return; }
-      const wb=XLSX.utils.book_new();
-      const add=(name,rows)=>XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows||[]), name);
-      add('Summary',state.result.summary); add('ByCategory',state.result.byCategory); add('ByAccount445',state.result.byAccount); add('Anomalies',state.result.anomalies); add('ClientAnalysis',state.result.clients); add('ClassifiedLines',state.result.classified);
-      XLSX.writeFile(wb, `cadrage_tva_${state.result.summary[0].company_id}_${state.result.summary[0].period_end}.xlsx`);
-      setStatus('Export Excel généré.', 'ok');
+      let h='<div class="tbl"><table><thead><tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr></thead><tbody>';
+      rows.forEach(r=>h+='<tr>'+cols.map(c=>`<td>${r[c]??''}</td>`).join('')+'</tr>');
+      h+='</tbody></table></div>'; el.innerHTML=h;
     }
 
     function switchMode(mode){
       state.mode=mode;
-      csvPanel.classList.toggle('hidden', mode!=='csv');
-      apiPanel.classList.toggle('hidden', mode!=='api');
-      setStatus(mode==='csv' ? 'Mode CSV actif.' : 'Mode API actif.', 'ok');
+      $('csvPanel').classList.toggle('hidden',mode!=='csv');
+      $('apiPanel').classList.toggle('hidden',mode!=='api');
+      setStatus(mode==='csv'?'Mode CSV actif':'Mode API actif',true);
     }
 
-    tabCsv.addEventListener('click',()=>switchMode('csv'));
-    tabApi.addEventListener('click',()=>switchMode('api'));
-    loadCsvBtn.addEventListener('click',loadCsv);
-    saveApiBtn.addEventListener('click',saveApiConfig);
-    loadCompaniesBtn.addEventListener('click',loadCompaniesFromApi);
-    syncApiBtn.addEventListener('click',syncDataFromApi);
-    runBtn.addEventListener('click',runCadrage);
-    exportBtn.addEventListener('click',exportExcel);
+    function saveApi(){
+      if(!$('rememberApi').checked){localStorage.removeItem(API_STORAGE_KEY); setStatus('Mémorisation API désactivée.',true); return;}
+      localStorage.setItem(API_STORAGE_KEY, JSON.stringify({apiBase:$('apiBase').value,apiKey:$('apiKey').value,epCompanies:$('epCompanies').value,epVat:$('epVat').value,epGl:$('epGl').value,epMap:$('epMap').value}));
+      setStatus('Config API enregistrée.',true);
+    }
+    function loadApi(){
+      const raw=localStorage.getItem(API_STORAGE_KEY); if(!raw) return;
+      try{const c=JSON.parse(raw); $('apiBase').value=c.apiBase||''; $('apiKey').value=c.apiKey||''; $('epCompanies').value=c.epCompanies||'/companies'; $('epVat').value=c.epVat||'/vat_declarations'; $('epGl').value=c.epGl||'/general_ledger'; $('epMap').value=c.epMap||''; setStatus('Config API restaurée.',true);}catch{}
+    }
+    async function apiGet(path, params={}){
+      const base=$('apiBase').value.trim(), key=$('apiKey').value.trim(); if(!base||!key) throw new Error('Base URL + API Key requis.');
+      const u=new URL(path.replace(/^\/+/,''), base.endsWith('/')?base:base+'/'); Object.entries(params).forEach(([k,v])=>{if(v!==''&&v!=null)u.searchParams.set(k,v);});
+      const r=await fetch(u.toString(),{headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'}}); if(!r.ok) throw new Error(`HTTP ${r.status} ${u.pathname}`); return r.json();
+    }
 
-    todayInit();
-    loadApiConfig();
-    switchMode('csv');
+    function fillCompanies(companies){$('company').innerHTML=''; companies.forEach(c=>{const o=document.createElement('option'); o.value=c; o.textContent=c; $('company').appendChild(o);});}
+
+    async function loadCsvMode(){
+      try{
+        if(!$('vatFile').files[0]||!$('glFile').files[0]) throw new Error('Fichiers TVA et GL requis.');
+        state.vat=await parseCsv($('vatFile').files[0]); state.gl=await parseCsv($('glFile').files[0]); state.mapping=$('mapFile').files[0]?await parseCsv($('mapFile').files[0]):defaultMapping();
+        const k=findKey(state.vat[0],aliases.company); const companies=[...new Set(state.vat.map(r=>String(r[k]||'')).filter(Boolean))].sort(); fillCompanies(companies);
+        setStatus(`CSV chargés (${state.vat.length} TVA, ${state.gl.length} GL).`,true);
+      }catch(e){setStatus('Erreur CSV: '+e.message,false);}
+    }
+
+    async function loadCompaniesApi(){
+      try{saveApi(); const rows=normPayload(await apiGet($('epCompanies').value||'/companies')); if(!rows.length) throw new Error('Aucune société.'); const idk=findKey(rows[0],aliases.company)||'company_id'; fillCompanies([...new Set(rows.map(r=>String(r[idk]||'')).filter(Boolean))].sort()); setStatus('Sociétés API chargées.',true);}catch(e){setStatus('Erreur API sociétés: '+e.message,false);}
+    }
+
+    async function syncApiData(){
+      try{
+        saveApi(); const c=$('company').value; if(!c) throw new Error('Choisir société.');
+        const fs=$('fiscalStart').value, pe=$('periodEnd').value;
+        state.vat=normPayload(await apiGet($('epVat').value||'/vat_declarations',{company_id:c,period_start:fs,period_end:pe}));
+        state.gl=normPayload(await apiGet($('epGl').value||'/general_ledger',{company_id:c,period_start:fs,period_end:pe}));
+        state.mapping=$('epMap').value?normPayload(await apiGet($('epMap').value,{company_id:c})):defaultMapping();
+        if(!state.mapping.length) state.mapping=defaultMapping();
+        setStatus(`API synchronisée (${state.vat.length} TVA, ${state.gl.length} GL).`,true);
+      }catch(e){setStatus('Erreur API données: '+e.message,false);}
+    }
+
+    function compute(){
+      const c=$('company').value, ps=dt($('periodStart').value), pe=dt($('periodEnd').value), fs=dt($('fiscalStart').value);
+      if(!c||!ps||!pe||!fs) throw new Error('Paramètres incomplets'); if(!state.vat.length||!state.gl.length) throw new Error('Données absentes');
+      const vd0=state.vat[0], gl0=state.gl[0];
+      const vdCompany=findKey(vd0,aliases.company), vdPs=findKey(vd0,aliases.periodStart), vdPe=findKey(vd0,aliases.periodEnd), vdDecl=findKey(vd0,aliases.declared), vdForm=findKey(vd0,aliases.form);
+      const glCompany=findKey(gl0,aliases.company), glDate=findKey(gl0,aliases.date), glAcc=findKey(gl0,aliases.account), glDebit=findKey(gl0,aliases.debit), glCredit=findKey(gl0,aliases.credit), glJournal=findKey(gl0,aliases.journal), glInvoice=findKey(gl0,aliases.invoice), glTier=findKey(gl0,aliases.tier), glTierId=findKey(gl0,aliases.tierId);
+      if(!vdCompany||!vdPs||!vdPe||!vdDecl||!glCompany||!glDate||!glAcc) throw new Error('Colonnes minimales introuvables');
+
+      const maps=(state.mapping.length?state.mapping:defaultMapping()).filter(m=>String(m.is_active??'true').toLowerCase()!=='false');
+      const vdP=state.vat.filter(r=>String(r[vdCompany])===c&&dt(r[vdPs])>=ps&&dt(r[vdPe])<=pe), vdY=state.vat.filter(r=>String(r[vdCompany])===c&&dt(r[vdPs])>=fs&&dt(r[vdPe])<=pe);
+      const declaredP=vdP.reduce((a,r)=>a+num(r[vdDecl]),0), declaredY=vdY.reduce((a,r)=>a+num(r[vdDecl]),0), formType=vdP[0]?.[vdForm]||'N/A';
+      const glP=state.gl.filter(r=>String(r[glCompany])===c&&dt(r[glDate])>=ps&&dt(r[glDate])<=pe&&String(r[glAcc]||'').startsWith('445'));
+      const glY=state.gl.filter(r=>String(r[glCompany])===c&&dt(r[glDate])>=fs&&dt(r[glDate])<=pe&&String(r[glAcc]||'').startsWith('445'));
+
+      const classify=rows=>rows.map((r,i)=>{
+        const acc=String(r[glAcc]||''), debit=num(r[glDebit]), credit=num(r[glCredit]), net=debit-credit;
+        const m=maps.filter(x=>(x.company_id===c||x.company_id==='__DEFAULT__')&&acc.startsWith(String(x.account_prefix||''))).sort((a,b)=>(+a.priority||999)-(+b.priority||999)||String(b.account_prefix).length-String(a.account_prefix).length)[0];
+        let cat='UNMAPPED', normalized=net; if(m){const dir=String(m.direction||'NET').toUpperCase();cat=m.vat_category||'UNMAPPED';normalized=(dir==='DEBIT'?debit:(dir==='CREDIT'?credit:net))*(+m.sign_factor||1);}
+        const id=`${acc}|${r[glDate]}|${r[glInvoice]||''}|${i}`;
+        return {id,company_id:c,entry_date:r[glDate],account_number:acc,debit:+debit.toFixed(2),credit:+credit.toFixed(2),net_amount:+net.toFixed(2),journal_code:glJournal?(r[glJournal]||''):'',invoice_number:glInvoice?(r[glInvoice]||''):'',tier_name:glTier?(r[glTier]||'TIERS_NON_RENSEIGNE'):'TIERS_NON_RENSEIGNE',tier_id:glTierId?(r[glTierId]||''):'',vat_category:cat,normalized_amount:+normalized.toFixed(2)};
+      });
+
+      const clP=classify(glP), clY=classify(glY);
+      const group=(rows,k,v)=>{const m=new Map(); rows.forEach(r=>m.set(r[k],(m.get(r[k])||0)+num(r[v]))); return [...m.entries()].map(([x,y])=>({[k]:x,[v]:+y.toFixed(2)}));};
+      const byCategory=group(clP,'vat_category','normalized_amount').sort((a,b)=>String(a.vat_category).localeCompare(String(b.vat_category)));
+      const byAccount=(()=>{const m=new Map(); clP.forEach(r=>{if(!m.has(r.account_number))m.set(r.account_number,{account_number:r.account_number,total_debit:0,total_credit:0,net_balance:0}); const x=m.get(r.account_number); x.total_debit+=r.debit; x.total_credit+=r.credit; x.net_balance+=r.net_amount;}); return [...m.values()].map(x=>({...x,total_debit:+x.total_debit.toFixed(2),total_credit:+x.total_credit.toFixed(2),net_balance:+x.net_balance.toFixed(2)}));})();
+      const cat=(arr,n)=>arr.find(x=>x.vat_category===n)?.normalized_amount||0;
+      const vatTheoP=cat(byCategory,'COLLECTEE')-(cat(byCategory,'DED_ABS')+cat(byCategory,'DED_IMMO'))+cat(byCategory,'DUE_AUTOLIQ')-cat(byCategory,'DED_AUTOLIQ')-cat(byCategory,'CREDIT_ANTERIEUR')+cat(byCategory,'REGULARISATION_TVA');
+      const byCategoryY=group(clY,'vat_category','normalized_amount');
+      const vatTheoY=cat(byCategoryY,'COLLECTEE')-(cat(byCategoryY,'DED_ABS')+cat(byCategoryY,'DED_IMMO'))+cat(byCategoryY,'DUE_AUTOLIQ')-cat(byCategoryY,'DED_AUTOLIQ')-cat(byCategoryY,'CREDIT_ANTERIEUR')+cat(byCategoryY,'REGULARISATION_TVA');
+
+      const anomalies=clP.map(r=>{let issue='OK'; if(r.vat_category==='UNMAPPED')issue='UNMAPPED_445'; if(r.journal_code==='OD'&&Math.abs(r.net_amount)>=1000)issue='OD_HIGH_RISK'; if(r.account_number.startsWith('44571')&&r.debit>r.credit)issue='COLLECTEE_SIGN_INVERTED'; if(r.account_number.startsWith('44566')&&r.credit>r.debit)issue='DEDUCTIBLE_SIGN_INVERTED'; if(!r.invoice_number&&Math.abs(r.net_amount)>500)issue='NO_INVOICE_REFERENCE'; const score={UNMAPPED_445:100,OD_HIGH_RISK:90,COLLECTEE_SIGN_INVERTED:85,DEDUCTIBLE_SIGN_INVERTED:85,NO_INVOICE_REFERENCE:70,OK:0}[issue]||50; return {...r,issue_code:issue,anomaly_score:score,corrected:false};}).filter(r=>r.issue_code!=='OK').sort((a,b)=>b.anomaly_score-a.anomaly_score||Math.abs(b.net_amount)-Math.abs(a.net_amount));
+
+      const clients=(()=>{const rows=clP.filter(r=>r.account_number.startsWith('44571'));const m=new Map();rows.forEach(r=>{const k=`${r.tier_id}|${r.tier_name}`;if(!m.has(k))m.set(k,{tier_id:r.tier_id,tier_name:r.tier_name,vat_collectee_period:0});m.get(k).vat_collectee_period+=r.normalized_amount;});const out=[...m.values()].sort((a,b)=>b.vat_collectee_period-a.vat_collectee_period);const tot=out.reduce((a,r)=>a+r.vat_collectee_period,0)||1;return out.map(r=>({...r,vat_collectee_period:+r.vat_collectee_period.toFixed(2),share_pct:+(100*r.vat_collectee_period/tot).toFixed(2)}));})();
+
+      const summary=[{company_id:c,period_start:$('periodStart').value,period_end:$('periodEnd').value,fiscal_year_start:$('fiscalStart').value,form_type:formType,declared_amount_period:+declaredP.toFixed(2),vat_theoretical_period:+vatTheoP.toFixed(2),cadrage_gap_period:+(declaredP-vatTheoP).toFixed(2),declared_amount_ytd:+declaredY.toFixed(2),vat_theoretical_ytd:+vatTheoY.toFixed(2),cadrage_gap_ytd:+(declaredY-vatTheoY).toFixed(2),anomaly_count_line_level:anomalies.length,anomaly_amount_line_level:+anomalies.reduce((a,r)=>a+Math.abs(r.net_amount),0).toFixed(2),cadrage_gap_adjusted:+(declaredP-vatTheoP).toFixed(2)}];
+      state.result={summary,byCategory,byAccount,anomalies,clients,classified:clP};
+    }
+
+    function renderAnomalies(){
+      const data=state.result?.anomalies||[];
+      const issue=$('issueFilter').value, min=Math.abs(num($('amountFilter').value));
+      const rows=data.filter(r=>(issue==='ALL'||r.issue_code===issue)&&Math.abs(r.net_amount)>=min);
+      let h='<table><thead><tr><th>Issue</th><th>Score</th><th>Date</th><th>Compte</th><th>Journal</th><th>Facture</th><th>Montant</th><th>Action</th><th>Statut</th></tr></thead><tbody>';
+      rows.forEach(r=>{
+        const corr=state.corrections.get(r.id);
+        const tag=r.anomaly_score>=90?'red':(r.anomaly_score>=70?'orange':'green');
+        h+=`<tr>
+          <td><span class="tag ${tag}">${r.issue_code}</span></td>
+          <td>${r.anomaly_score}</td>
+          <td>${r.entry_date||''}</td>
+          <td>${r.account_number}</td>
+          <td>${r.journal_code||''}</td>
+          <td>${r.invoice_number||''}</td>
+          <td>${r.net_amount}</td>
+          <td><button class="secondary" onclick="applyQuickCorrection('${r.id}')">Corriger</button></td>
+          <td>${corr?`✅ ${corr.action}`:'-'}</td>
+        </tr>`;
+      });
+      h+='</tbody></table>';
+      $('anomaliesTable').innerHTML=h;
+    }
+
+    function recalcAdjustedGap(){
+      if(!state.result) return;
+      let adjusted=state.result.summary[0].vat_theoretical_period;
+      state.result.anomalies.forEach(r=>{
+        const corr=state.corrections.get(r.id);
+        if(!corr) return;
+        if(corr.action==='EXCLUDE_LINE') adjusted -= r.normalized_amount;
+        if(corr.action==='SIGN_INVERT') adjusted -= (2*r.normalized_amount);
+        if(corr.action==='REMAP_COLLECTEE'){ adjusted -= r.normalized_amount; adjusted += Math.abs(r.net_amount); }
+        if(corr.action==='REMAP_DED_ABS' || corr.action==='REMAP_DED_IMMO'){ adjusted -= r.normalized_amount; adjusted -= Math.abs(r.net_amount); }
+      });
+      const newGap=state.result.summary[0].declared_amount_period-adjusted;
+      state.result.summary[0].cadrage_gap_adjusted=+newGap.toFixed(2);
+      $('kpiGapAdjusted').textContent=newGap.toFixed(2);
+    }
+
+    window.applyQuickCorrection = function(id){
+      const action=$('quickAction').value;
+      if(!action){ setStatus('Choisissez une action rapide.', false); return; }
+      state.corrections.set(id,{action,ts:new Date().toISOString()});
+      renderAnomalies(); recalcAdjustedGap();
+      setStatus('Correction appliquée sur la ligne sélectionnée.', true);
+    }
+
+    function refreshUI(){
+      if(!state.result) return;
+      renderBasicTable('summary',state.result.summary);
+      renderBasicTable('byCategory',state.result.byCategory);
+      renderBasicTable('byAccount',state.result.byAccount);
+      renderBasicTable('clients',state.result.clients);
+      renderAnomalies();
+      $('kpiGapPeriod').textContent=state.result.summary[0].cadrage_gap_period.toFixed(2);
+      $('kpiGapYtd').textContent=state.result.summary[0].cadrage_gap_ytd.toFixed(2);
+      $('kpiAnom').textContent=state.result.summary[0].anomaly_count_line_level;
+      $('kpiGapAdjusted').textContent=state.result.summary[0].cadrage_gap_adjusted.toFixed(2);
+    }
+
+    function runCadrage(){
+      try{compute(); refreshUI(); setStatus('Cadrage exécuté. Utilisez le centre d’anomalies pour corriger rapidement.', true);}catch(e){setStatus('Erreur cadrage: '+e.message,false);}
+    }
+
+    function exportExcel(){
+      if(!state.result){setStatus('Lancez un cadrage avant export.',false); return;}
+      const wb=XLSX.utils.book_new(), add=(n,r)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(r||[]),n);
+      add('Summary',state.result.summary); add('ByCategory',state.result.byCategory); add('ByAccount445',state.result.byAccount); add('Anomalies',state.result.anomalies); add('ClientAnalysis',state.result.clients); add('Corrections',[...state.corrections.entries()].map(([id,v])=>({line_id:id,action:v.action,ts:v.ts}))); add('ClassifiedLines',state.result.classified);
+      XLSX.writeFile(wb,`cadrage_tva_${state.result.summary[0].company_id}_${state.result.summary[0].period_end}.xlsx`);
+      setStatus('Export Excel généré.',true);
+    }
+
+    function resetCorrections(){ state.corrections=new Map(); if(state.result){state.result.summary[0].cadrage_gap_adjusted=state.result.summary[0].cadrage_gap_period; refreshUI();} setStatus('Corrections réinitialisées.',true); }
+
+    // Events
+    $('tabCsv').addEventListener('click',()=>switchMode('csv'));
+    $('tabApi').addEventListener('click',()=>switchMode('api'));
+    $('loadCsvBtn').addEventListener('click',loadCsvMode);
+    $('saveApiBtn').addEventListener('click',saveApi);
+    $('loadCompaniesBtn').addEventListener('click',loadCompaniesApi);
+    $('syncApiBtn').addEventListener('click',syncApiData);
+    $('runBtn').addEventListener('click',runCadrage);
+    $('exportBtn').addEventListener('click',exportExcel);
+    $('resetCorrectionsBtn').addEventListener('click',resetCorrections);
+    $('applyFilterBtn').addEventListener('click',renderAnomalies);
+
+    // Init
+    $('periodEnd').value=today(); $('periodStart').value=today().slice(0,8)+'01'; $('fiscalStart').value=today().slice(0,4)+'-01-01';
+    loadApi(); switchMode('csv');
   </script>
 </body>
 </html>

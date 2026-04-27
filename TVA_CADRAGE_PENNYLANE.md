@@ -1020,4 +1020,5 @@ Fonctionnalités livrées dans l'app :
 5. Analyse ligne à ligne des anomalies.
 6. Analyse clients.
 7. Export Excel multi-onglets après cadrage.
+8. Centre d'anomalies interactif avec correction rapide utilisateur (actions immédiates + impact sur écart ajusté).
 
