@@ -144,15 +144,19 @@ export function computeVatReconciliation(params: {
     controls.push({ code: 'UNMAPPED_445_MINOR', level: 'INFO', message: 'Comptes 445 non mappés non significatifs', action: 'Finaliser mapping', impact: 'A_CONTROLER' });
   }
 
-  if (anomalies.some((a) => a.anomaly_code === 'SIGN_TO_REVIEW')) {
-    controls.push({ code: 'SIGN_TO_REVIEW', level: 'WARNING', message: 'Sens débit/crédit TVA à contrôler', action: 'Vérifier compte et sens', impact: 'A_CONTROLER' });
+  if (anomalies.some((a) => a.anomaly_code === 'TVA_COLLECTEE_DEBIT')) {
+    controls.push({ code: 'TVA_COLLECTEE_DEBIT', level: 'WARNING', message: 'TVA collectée au débit détectée', action: 'Vérifier et corriger le sens de comptabilisation', impact: 'A_CONTROLER' });
+  }
+
+  if (anomalies.some((a) => a.anomaly_code === 'TVA_DEDUCTIBLE_CREDIT')) {
+    controls.push({ code: 'TVA_DEDUCTIBLE_CREDIT', level: 'WARNING', message: 'TVA déductible au crédit détectée', action: 'Vérifier et corriger le sens de comptabilisation', impact: 'A_CONTROLER' });
   }
 
   if (autoliqDelta > 1) controls.push({ code: 'AUTOLIQ_NOT_BALANCED', level: 'WARNING', message: 'Autoliquidation non équilibrée', action: 'Vérifier DUE/DED', impact: 'A_CONTROLER' });
   if ((categoryTotals.get('CREDIT_ANTERIEUR') ?? 0) === 0 && lines.some((l) => l.account_number.startsWith('44567'))) controls.push({ code: 'CREDIT_ANTERIEUR_NOT_EXPLAINED', level: 'WARNING', message: '44567 sans explication crédit antérieur', action: 'Qualifier 44567', impact: 'A_CONTROLER' });
-  if ((categoryTotals.get('TVA_A_DECAISSER') ?? 0) !== 0 && !vatRows.length) controls.push({ code: '44551_MOVEMENT_WITHOUT_DECLARATION', level: 'WARNING', message: '44551 mouvement sans déclaration', action: 'Analyser règlements', impact: 'A_CONTROLER' });
+  if (lines.some((l) => l.account_number.startsWith('44551')) && !vatRows.length) controls.push({ code: '44551_MOVEMENT_WITHOUT_DECLARATION', level: 'WARNING', message: '44551 mouvementé sans déclaration', action: 'Vérifier la déclaration TVA de la période', impact: 'A_CONTROLER' });
   if (anomalies.some((a) => a.anomaly_code === 'OD_TVA_SIGNIFICATIVE')) controls.push({ code: 'OD_TVA_SIGNIFICATIVE', level: 'WARNING', message: 'OD TVA significative', action: 'Contrôler justificatifs', impact: 'A_CONTROLER' });
-  if (anomalies.some((a) => a.anomaly_code === 'NO_DOCUMENT_REFERENCE')) controls.push({ code: 'NO_DOCUMENT_REFERENCE', level: 'WARNING', message: 'Référence document absente', action: 'Compléter pièces', impact: 'A_CONTROLER' });
+  if (anomalies.some((a) => a.anomaly_code === 'MISSING_DOCUMENT_SIGNIFICANT')) controls.push({ code: 'MISSING_DOCUMENT_SIGNIFICANT', level: 'WARNING', message: 'Absence de document sur ligne significative', action: 'Rattacher une pièce justificative', impact: 'A_CONTROLER' });
   if (anomalies.some((a) => a.anomaly_code === 'NO_INVOICE_REFERENCE')) controls.push({ code: 'NO_INVOICE_REFERENCE', level: 'INFO', message: 'Référence facture absente', action: 'Compléter invoice', impact: 'A_CONTROLER' });
   if (fs > ps) controls.push({ code: 'PERIOD_OUTSIDE_FISCAL_YEAR', level: 'BLOCKING', message: 'Période hors exercice', action: 'Corriger dates', impact: 'NON_CONCLUANT' });
   if (params.regimeTva === 'marge') controls.push({ code: 'VAT_MARGIN_SCOPE_NOT_HANDLED', level: 'BLOCKING', message: 'TVA marge non couverte', action: 'Traitement complémentaire', impact: 'NON_CONCLUANT' });

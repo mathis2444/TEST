@@ -166,3 +166,93 @@ describe('classifyVatLines mapping priority', () => {
     expect(lines[0].mapped).toBe(true);
   });
 });
+
+describe('business controls coverage', () => {
+  const baseParams = {
+    companyId: 'C1',
+    vatDeclarations: vat,
+    taxDeclarations: tax,
+    generalLedger: gl,
+    mapping,
+    selectedPeriodStart: '2026-01-01',
+    selectedPeriodEnd: '2026-01-31',
+    fiscalYearStart: '2026-01-01',
+    regimeTva: 'debits' as const,
+    threshold: 5,
+    keysVat,
+    keysGl,
+    adjustments: []
+  };
+
+  it('flags 44551 movement without declaration and does not flag when declaration exists', () => {
+    const gl2 = [...gl, { company_id:'C1', date:'31/01/2026', plan_item_number:'44551', debit:'0', credit:'800', journal_code:'OD', id:'B1', document_id:'B1', invoice_number:'INV-B1' } as any];
+    const keysGl2 = normalizeColumns(gl2[0], aliases);
+
+    const noDeclaration = computeVatReconciliation({ ...baseParams, vatDeclarations: [], generalLedger: gl2, keysGl: keysGl2 });
+    expect(noDeclaration.controls.some((c) => c.code === '44551_MOVEMENT_WITHOUT_DECLARATION')).toBe(true);
+
+    const withDeclaration = computeVatReconciliation({ ...baseParams, generalLedger: gl2, keysGl: keysGl2 });
+    expect(withDeclaration.controls.some((c) => c.code === '44551_MOVEMENT_WITHOUT_DECLARATION')).toBe(false);
+  });
+
+  it('flags 44567 without credit antérieur and does not flag when credit antérieur is mapped', () => {
+    const gl2 = [...gl, { company_id:'C1', date:'31/01/2026', plan_item_number:'44567', debit:'0', credit:'120', journal_code:'OD', id:'B2', document_id:'B2', invoice_number:'INV-B2' } as any];
+    const keysGl2 = normalizeColumns(gl2[0], aliases);
+
+    const mapNoCredit = mapping.filter((m:any) => String(m.account_prefix ?? '') !== '44567');
+    const noCredit = computeVatReconciliation({ ...baseParams, generalLedger: gl2, keysGl: keysGl2, mapping: mapNoCredit });
+    expect(noCredit.controls.some((c) => c.code === 'CREDIT_ANTERIEUR_NOT_EXPLAINED')).toBe(true);
+
+    const map2 = [...mapping, { company_id:'__DEFAULT__', account_prefix:'44567', vat_category:'CREDIT_ANTERIEUR', direction:'CREDIT', sign_factor:1, priority:1, is_active:'true' } as any];
+    const withCredit = computeVatReconciliation({ ...baseParams, generalLedger: gl2, keysGl: keysGl2, mapping: map2 });
+    expect(withCredit.controls.some((c) => c.code === 'CREDIT_ANTERIEUR_NOT_EXPLAINED')).toBe(false);
+  });
+
+  it('flags collected VAT on debit and not when direction is correct', () => {
+    const glBad = [{ company_id:'C1', date:'31/01/2026', plan_item_number:'44571', debit:'300', credit:'0', journal_code:'VE', id:'C1', document_id:'C1', invoice_number:'INV-C1' } as any];
+    const glGood = [{ company_id:'C1', date:'31/01/2026', plan_item_number:'44571', debit:'0', credit:'300', journal_code:'VE', id:'C2', document_id:'C2', invoice_number:'INV-C2' } as any];
+    const mapOnly = [{ company_id:'__DEFAULT__', account_prefix:'44571', vat_category:'COLLECTEE', direction:'NET', sign_factor:1, priority:1, is_active:'true' } as any];
+
+    const bad = computeVatReconciliation({ ...baseParams, generalLedger: glBad, mapping: mapOnly, keysGl: normalizeColumns(glBad[0], aliases) });
+    expect(bad.controls.some((c) => c.code === 'TVA_COLLECTEE_DEBIT')).toBe(true);
+
+    const good = computeVatReconciliation({ ...baseParams, generalLedger: glGood, mapping: mapOnly, keysGl: normalizeColumns(glGood[0], aliases) });
+    expect(good.controls.some((c) => c.code === 'TVA_COLLECTEE_DEBIT')).toBe(false);
+  });
+
+  it('flags deductible VAT on credit and not when direction is correct', () => {
+    const glBad = [{ company_id:'C1', date:'31/01/2026', plan_item_number:'44566', debit:'0', credit:'250', journal_code:'AC', id:'D1', document_id:'D1', invoice_number:'INV-D1' } as any];
+    const glGood = [{ company_id:'C1', date:'31/01/2026', plan_item_number:'44566', debit:'250', credit:'0', journal_code:'AC', id:'D2', document_id:'D2', invoice_number:'INV-D2' } as any];
+    const mapOnly = [{ company_id:'__DEFAULT__', account_prefix:'44566', vat_category:'DED_ABS', direction:'NET', sign_factor:1, priority:1, is_active:'true' } as any];
+
+    const bad = computeVatReconciliation({ ...baseParams, generalLedger: glBad, mapping: mapOnly, keysGl: normalizeColumns(glBad[0], aliases) });
+    expect(bad.controls.some((c) => c.code === 'TVA_DEDUCTIBLE_CREDIT')).toBe(true);
+
+    const good = computeVatReconciliation({ ...baseParams, generalLedger: glGood, mapping: mapOnly, keysGl: normalizeColumns(glGood[0], aliases) });
+    expect(good.controls.some((c) => c.code === 'TVA_DEDUCTIBLE_CREDIT')).toBe(false);
+  });
+
+  it('flags significant OD and not for non-significant OD', () => {
+    const glBad = [{ company_id:'C1', date:'31/01/2026', plan_item_number:'44571', debit:'0', credit:'1500', journal_code:'OD', id:'E1', document_id:'E1', invoice_number:'INV-E1' } as any];
+    const glGood = [{ company_id:'C1', date:'31/01/2026', plan_item_number:'44571', debit:'0', credit:'100', journal_code:'OD', id:'E2', document_id:'E2', invoice_number:'INV-E2' } as any];
+    const mapOnly = [{ company_id:'__DEFAULT__', account_prefix:'44571', vat_category:'COLLECTEE', direction:'NET', sign_factor:1, priority:1, is_active:'true' } as any];
+
+    const bad = computeVatReconciliation({ ...baseParams, generalLedger: glBad, mapping: mapOnly, keysGl: normalizeColumns(glBad[0], aliases) });
+    expect(bad.controls.some((c) => c.code === 'OD_TVA_SIGNIFICATIVE')).toBe(true);
+
+    const good = computeVatReconciliation({ ...baseParams, generalLedger: glGood, mapping: mapOnly, keysGl: normalizeColumns(glGood[0], aliases) });
+    expect(good.controls.some((c) => c.code === 'OD_TVA_SIGNIFICATIVE')).toBe(false);
+  });
+
+  it('flags missing significant document and not for non-significant line', () => {
+    const glBad = [{ company_id:'C1', date:'31/01/2026', plan_item_number:'44571', debit:'0', credit:'700', journal_code:'VE', id:'F1', document_id:'', invoice_number:'INV-F1' } as any];
+    const glGood = [{ company_id:'C1', date:'31/01/2026', plan_item_number:'44571', debit:'0', credit:'100', journal_code:'VE', id:'F2', document_id:'', invoice_number:'INV-F2' } as any];
+    const mapOnly = [{ company_id:'__DEFAULT__', account_prefix:'44571', vat_category:'COLLECTEE', direction:'NET', sign_factor:1, priority:1, is_active:'true' } as any];
+
+    const bad = computeVatReconciliation({ ...baseParams, generalLedger: glBad, mapping: mapOnly, keysGl: normalizeColumns(glBad[0], aliases) });
+    expect(bad.controls.some((c) => c.code === 'MISSING_DOCUMENT_SIGNIFICANT')).toBe(true);
+
+    const good = computeVatReconciliation({ ...baseParams, generalLedger: glGood, mapping: mapOnly, keysGl: normalizeColumns(glGood[0], aliases) });
+    expect(good.controls.some((c) => c.code === 'MISSING_DOCUMENT_SIGNIFICANT')).toBe(false);
+  });
+});
