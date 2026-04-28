@@ -2,7 +2,7 @@ import type { Adjustment } from '../types';
 
 export function applyAdjustments(vatTheoretical: number, anomalies: any[], adjustments: Adjustment[]) {
   let out = vatTheoretical;
-  const valid = adjustments.filter((a) => a.status === 'VALIDATED' || a.status === 'APPLIED');
+  const valid = adjustments.filter((a) => a.status === 'VALIDEE');
   for (const adj of valid) {
     const line = anomalies.find((a) => a.id === adj.lineId);
     if (!line) continue;

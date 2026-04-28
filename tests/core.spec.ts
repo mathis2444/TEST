@@ -5,6 +5,7 @@ import { computeVatReconciliation } from '../src/core/computeVatReconciliation';
 import { classifyVatLines } from '../src/core/classifyVatLines';
 import { aliases, normalizeColumns } from '../src/core/normalizeColumns';
 import { buildCabinetConclusion, conclusionMessage } from '../src/core/buildCabinetConclusion';
+import { applyAdjustments } from '../src/core/applyAdjustments';
 import fs from 'node:fs';
 import Papa from 'papaparse';
 
@@ -254,5 +255,27 @@ describe('business controls coverage', () => {
 
     const good = computeVatReconciliation({ ...baseParams, generalLedger: glGood, mapping: mapOnly, keysGl: normalizeColumns(glGood[0], aliases) });
     expect(good.controls.some((c) => c.code === 'MISSING_DOCUMENT_SIGNIFICANT')).toBe(false);
+  });
+});
+
+
+describe('applyAdjustments', () => {
+  const anomalies = [{ id: 'L1', normalized_amount: 100, net_amount: 100 }];
+
+  it('applies only VALIDEE adjustments', () => {
+    const draft = applyAdjustments(1000, anomalies, [{ lineId: 'L1', action: 'EXCLUDE_LINE', status: 'CORRECTION_PROPOSEE', author: 'u', timestamp: '', comment: '', oldImpact: 0, newImpact: 0 } as any]);
+    const validated = applyAdjustments(1000, anomalies, [{ lineId: 'L1', action: 'EXCLUDE_LINE', status: 'VALIDEE', author: 'u', timestamp: '', comment: 'ok', oldImpact: 0, newImpact: 0 } as any]);
+    expect(draft).toBe(1000);
+    expect(validated).toBe(900);
+  });
+
+  it('applies SIGN_INVERT correctly', () => {
+    const out = applyAdjustments(1000, anomalies, [{ lineId: 'L1', action: 'SIGN_INVERT', status: 'VALIDEE', author: 'u', timestamp: '', comment: 'ok', oldImpact: 0, newImpact: 0 } as any]);
+    expect(out).toBe(800);
+  });
+
+  it('ignores adjustment if anomaly line is missing', () => {
+    const out = applyAdjustments(1000, anomalies, [{ lineId: 'UNKNOWN', action: 'EXCLUDE_LINE', status: 'VALIDEE', author: 'u', timestamp: '', comment: 'ok', oldImpact: 0, newImpact: 0 } as any]);
+    expect(out).toBe(1000);
   });
 });

@@ -49,6 +49,18 @@ export function exportWorkbook(payload: {
   if (payload.ytd) add('YTD', [payload.ytd]);
   add('Controls', payload.controls);
   add('Adjustments', payload.adjustments);
+  const anomalyReview = payload.anomalies.map((a) => {
+    const rev = payload.adjustments.find((x) => x.lineId === a.id) ?? {};
+    return {
+      ...a,
+      review_status: rev.status ?? 'A_TRAITER',
+      review_action: rev.action ?? '',
+      review_comment: rev.comment ?? '',
+      review_author: rev.author ?? '',
+      review_date: rev.reviewDate ?? rev.timestamp ?? ''
+    };
+  });
+  add('AnomaliesReview', anomalyReview);
   if (payload.byCategory) add('ByCategory', payload.byCategory);
   if (payload.byAccount) add('ByAccount445', payload.byAccount);
   if (payload.declarationsRetained) add('DeclarationsRetained', payload.declarationsRetained);

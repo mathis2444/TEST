@@ -9,12 +9,15 @@ export interface Control {
   impact: string;
 }
 
+export type ReviewStatus = 'A_TRAITER' | 'JUSTIFIEE' | 'CORRECTION_PROPOSEE' | 'VALIDEE' | 'REJETEE' | 'NON_SIGNIFICATIVE';
+
 export interface Adjustment {
   lineId: string;
   action: 'EXCLUDE_LINE' | 'SIGN_INVERT' | 'REMAP_COLLECTEE' | 'REMAP_DED_ABS' | 'REMAP_DED_IMMO';
-  status: 'PROPOSED' | 'VALIDATED' | 'REJECTED' | 'APPLIED';
+  status: ReviewStatus;
   author: string;
   timestamp: string;
+  reviewDate?: string;
   comment: string;
   oldImpact: number;
   newImpact: number;

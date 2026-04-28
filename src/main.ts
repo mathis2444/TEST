@@ -59,7 +59,7 @@ app.innerHTML = `
   <div id="mappingTable" class="tbl"></div>
 </div>
 <div class="card"><h3>Comptes 445 non mappés (grand livre)</h3><div id="unmapped445" class="tbl"></div></div>
-<div class="card"><h3>Anomalies & Corrections</h3><div class="row"><input id="action" placeholder="EXCLUDE_LINE|SIGN_INVERT|REMAP_COLLECTEE|REMAP_DED_ABS|REMAP_DED_IMMO"/><input id="comment" placeholder="commentaire"/></div><div id="anomalies" class="tbl"></div></div>
+<div class="card"><h3>Anomalies & Revue</h3><div id="anomalies" class="tbl"></div></div>
 `;
 
 const state: { mode:'csv'|'api'; vat:any[]; tax:any[]; gl:any[]; mapping:any[]; result:any; adjustments: Adjustment[] } = { mode:'csv', vat:[], tax:[], gl:[], mapping:[], result:null, adjustments:[] };
@@ -213,18 +213,43 @@ function renderAnomaliesWithWorkflow(anomalies:any[]) {
   const container = document.getElementById('anomalies')!;
   container.innerHTML = '';
   if (!anomalies.length) { container.textContent = 'Aucune anomalie'; return; }
-  const rows = anomalies.map((a) => {
+
+  const tableEl = document.createElement('table');
+  const cols = ['id', 'anomaly_code', 'account_number', 'amount', 'statut', 'action_proposee', 'commentaire', 'auteur', 'date_revue'];
+  const trh = document.createElement('tr');
+  cols.forEach((c) => { const th = document.createElement('th'); th.textContent = c; trh.appendChild(th); });
+  const thead = document.createElement('thead'); thead.appendChild(trh); tableEl.appendChild(thead);
+  const tbody = document.createElement('tbody');
+
+  anomalies.forEach((a) => {
     const existing = state.adjustments.find((x) => x.lineId === a.id);
-    return {
-      id: a.id,
-      anomaly_code: a.anomaly_code,
-      account_number: a.account_number,
-      amount: a.net_amount,
-      status: existing?.status ?? '-',
-      action: existing?.action ?? '-'
-    };
+    const tr = document.createElement('tr');
+    tr.dataset.lineId = a.id;
+    tr.innerHTML = `
+      <td>${a.id}</td>
+      <td>${a.anomaly_code}</td>
+      <td>${a.account_number}</td>
+      <td>${a.net_amount}</td>
+      <td>
+        <select data-field="status">
+          ${['A_TRAITER', 'JUSTIFIEE', 'CORRECTION_PROPOSEE', 'VALIDEE', 'REJETEE', 'NON_SIGNIFICATIVE'].map((st) => `<option ${((existing?.status ?? 'A_TRAITER') === st) ? 'selected' : ''}>${st}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <select data-field="action">
+          ${['EXCLUDE_LINE', 'SIGN_INVERT', 'REMAP_COLLECTEE', 'REMAP_DED_ABS', 'REMAP_DED_IMMO'].map((ac) => `<option ${((existing?.action ?? 'EXCLUDE_LINE') === ac) ? 'selected' : ''}>${ac}</option>`).join('')}
+        </select>
+      </td>
+      <td><input data-field="comment" value="${existing?.comment ?? ''}" placeholder="Commentaire" /></td>
+      <td><input data-field="author" value="${existing?.author ?? $('author').value}" placeholder="Auteur" /></td>
+      <td><input data-field="reviewDate" type="date" value="${existing?.reviewDate ?? ''}" /></td>
+      <td><button class="btn-small" data-action="save">Enregistrer</button></td>
+    `;
+    tbody.appendChild(tr);
   });
-  container.appendChild(table(rows));
+
+  tableEl.appendChild(tbody);
+  container.appendChild(tableEl);
 }
 
 function recalc() {
@@ -313,7 +338,37 @@ function recalc() {
 
 (document.getElementById('anomalies') as HTMLElement).onclick = (ev) => {
   const target = ev.target as HTMLElement;
-  if (!target || target.tagName !== 'TD') return;
+  if (!target || target.getAttribute('data-action') !== 'save') return;
+  const tr = target.closest('tr') as HTMLTableRowElement | null;
+  if (!tr) return;
+
+  const lineId = tr.dataset.lineId!;
+  const statusVal = (tr.querySelector('[data-field="status"]') as HTMLSelectElement).value as Adjustment['status'];
+  const actionVal = (tr.querySelector('[data-field="action"]') as HTMLSelectElement).value as Adjustment['action'];
+  const commentVal = (tr.querySelector('[data-field="comment"]') as HTMLInputElement).value.trim();
+  const authorVal = (tr.querySelector('[data-field="author"]') as HTMLInputElement).value.trim() || $('author').value;
+  const reviewDateVal = (tr.querySelector('[data-field="reviewDate"]') as HTMLInputElement).value;
+
+  if ((statusVal === 'JUSTIFIEE' || statusVal === 'VALIDEE') && !commentVal) {
+    status('Commentaire obligatoire pour les statuts JUSTIFIEE et VALIDEE.');
+    return;
+  }
+
+  const existing = state.adjustments.find((a) => a.lineId === lineId);
+  const adj: Adjustment = {
+    lineId,
+    action: actionVal,
+    status: statusVal,
+    author: authorVal,
+    timestamp: new Date().toISOString(),
+    reviewDate: reviewDateVal,
+    comment: commentVal,
+    oldImpact: state.result?.summary?.cadrage_gap_adjusted ?? 0,
+    newImpact: state.result?.summary?.cadrage_gap_adjusted ?? 0
+  };
+  if (existing) Object.assign(existing, adj); else state.adjustments.push(adj);
+  recalc();
+  status(`Revue enregistrée pour ${lineId}`);
 };
 
 (document.getElementById('export') as HTMLButtonElement).onclick = () => {
@@ -341,26 +396,12 @@ function recalc() {
 
 renderMappingTable();
 
-// Minimal workflow helpers via console for now
-(window as any).proposeAdjustment = (lineId: string) => {
-  const action = $('action').value as Adjustment['action'];
-  const existing = state.adjustments.find((a) => a.lineId === lineId);
-  const adj: Adjustment = {
-    lineId,
-    action,
-    status: 'PROPOSED',
-    author: $('author').value,
-    timestamp: new Date().toISOString(),
-    comment: $('comment').value,
-    oldImpact: state.result?.summary?.cadrage_gap_adjusted ?? 0,
-    newImpact: state.result?.summary?.cadrage_gap_adjusted ?? 0
-  };
-  if (existing) Object.assign(existing, adj); else state.adjustments.push(adj);
-  recalc();
-};
-(window as any).setAdjustmentStatus = (lineId: string, statusVal: Adjustment['status']) => {
+// Workflow helper kept for debugging
+(window as any).setReviewStatus = (lineId: string, statusVal: Adjustment['status'], comment = '') => {
   const adj = state.adjustments.find((a) => a.lineId === lineId);
   if (!adj) return;
+  if ((statusVal === 'JUSTIFIEE' || statusVal === 'VALIDEE') && !comment.trim()) return;
   adj.status = statusVal;
+  adj.comment = comment || adj.comment;
   recalc();
 };
