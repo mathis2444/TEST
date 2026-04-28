@@ -43,7 +43,11 @@ export function classifyVatLines(
           if (vt && lineDate > vt) return false;
           return true;
         })
-        .sort((a, b) => (a.priority ?? 999) - (b.priority ?? 999) || b.account_prefix.length - a.account_prefix.length);
+        .sort((a, b) =>
+          (a.priority ?? 999) - (b.priority ?? 999) ||
+          (a.company_id === companyId ? -1 : 1) - (b.company_id === companyId ? -1 : 1) ||
+          b.account_prefix.length - a.account_prefix.length
+        );
 
       const matched = candidates[0];
       const category = matched?.vat_category ?? 'UNMAPPED';

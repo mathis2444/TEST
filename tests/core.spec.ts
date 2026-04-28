@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { num } from '../src/core/parseAmounts';
 import { dt } from '../src/core/parseDates';
 import { computeVatReconciliation } from '../src/core/computeVatReconciliation';
+import { classifyVatLines } from '../src/core/classifyVatLines';
 import { aliases, normalizeColumns } from '../src/core/normalizeColumns';
 import { buildCabinetConclusion, conclusionMessage } from '../src/core/buildCabinetConclusion';
 import fs from 'node:fs';
@@ -145,5 +146,23 @@ describe('cabinet conclusion', () => {
     const conclusion = buildCabinetConclusion(base.summary, 5);
     expect(conclusion.finalStatus).toBe('NON_CONCLUANT');
     expect(conclusion.regimeAlert).toContain('marge');
+  });
+});
+
+
+describe('classifyVatLines mapping priority', () => {
+  it('prefers company-specific mapping over __DEFAULT__ for same prefix/priority', () => {
+    const rows = [
+      { company_id: 'C1', date: '2026-01-15', plan_item_number: '445710', debit: '0', credit: '100', id: 'L1', document_id: 'D1', invoice_number: 'I1' }
+    ] as any[];
+    const keys = normalizeColumns(rows[0], aliases);
+    const map = [
+      { company_id: '__DEFAULT__', account_prefix: '4457', vat_category: 'COLLECTEE', direction: 'CREDIT', sign_factor: 1, priority: 10, is_active: 'true' },
+      { company_id: 'C1', account_prefix: '4457', vat_category: 'DED_ABS', direction: 'CREDIT', sign_factor: 1, priority: 10, is_active: 'true' }
+    ] as any[];
+
+    const lines = classifyVatLines(rows, keys, map, 'C1');
+    expect(lines[0].vat_category).toBe('DED_ABS');
+    expect(lines[0].mapped).toBe(true);
   });
 });

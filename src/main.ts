@@ -44,6 +44,21 @@ app.innerHTML = `
 <div class="card"><h3>Par catégorie</h3><div id="byCategory" class="tbl"></div></div>
 <div class="card"><h3>Par compte 445</h3><div id="byAccount" class="tbl"></div></div>
 <div class="card"><h3>Controls</h3><div id="controls" class="tbl"></div></div>
+
+<div class="card"><h3>Mapping TVA</h3>
+  <div class="grid">
+    <div><label>company_id</label><input id="mapCompanyId" value="__DEFAULT__" /></div>
+    <div><label>account_prefix</label><input id="mapAccountPrefix" placeholder="4457" /></div>
+    <div><label>vat_category</label><input id="mapVatCategory" placeholder="COLLECTEE" /></div>
+    <div><label>direction</label><select id="mapDirection"><option>NET</option><option>DEBIT</option><option>CREDIT</option></select></div>
+    <div><label>sign_factor</label><input id="mapSignFactor" value="1" /></div>
+    <div><label>priority</label><input id="mapPriority" value="100" /></div>
+    <div><label>is_active</label><select id="mapIsActive"><option>true</option><option>false</option></select></div>
+    <div style="align-self:end"><button id="addMapping">Ajouter mapping</button></div>
+  </div>
+  <div id="mappingTable" class="tbl"></div>
+</div>
+<div class="card"><h3>Comptes 445 non mappés (grand livre)</h3><div id="unmapped445" class="tbl"></div></div>
 <div class="card"><h3>Anomalies & Corrections</h3><div class="row"><input id="action" placeholder="EXCLUDE_LINE|SIGN_INVERT|REMAP_COLLECTEE|REMAP_DED_ABS|REMAP_DED_IMMO"/><input id="comment" placeholder="commentaire"/></div><div id="anomalies" class="tbl"></div></div>
 `;
 
@@ -145,6 +160,55 @@ function renderConclusion() {
   }
 }
 
+
+function renderMappingTable() {
+  const container = document.getElementById('mappingTable')!;
+  container.innerHTML = '';
+  if (!state.mapping.length) { container.textContent = 'Aucun mapping'; return; }
+
+  const cols = ['company_id','account_prefix','vat_category','direction','sign_factor','priority','is_active'];
+  const tableEl = document.createElement('table');
+  const thead = document.createElement('thead');
+  const trh = document.createElement('tr');
+  [...cols, 'actions'].forEach((c) => { const th = document.createElement('th'); th.textContent = c; trh.appendChild(th); });
+  thead.appendChild(trh);
+  tableEl.appendChild(thead);
+  const tbody = document.createElement('tbody');
+
+  state.mapping.forEach((m:any, idx:number) => {
+    const tr = document.createElement('tr');
+    cols.forEach((c) => { const td = document.createElement('td'); td.textContent = String(m[c] ?? ''); tr.appendChild(td); });
+    const tdAction = document.createElement('td');
+    const btn = document.createElement('button');
+    btn.textContent = String(m.is_active).toLowerCase() === 'false' ? 'Désactivé' : 'Désactiver';
+    btn.disabled = String(m.is_active).toLowerCase() === 'false';
+    btn.dataset.mapIndex = String(idx);
+    btn.className = 'btn-small';
+    tdAction.appendChild(btn);
+    tr.appendChild(tdAction);
+    tbody.appendChild(tr);
+  });
+
+  tableEl.appendChild(tbody);
+  container.appendChild(tableEl);
+}
+
+function renderUnmapped445() {
+  const container = document.getElementById('unmapped445')!;
+  container.innerHTML = '';
+  if (!state.result?.lines) { container.textContent = 'Aucun calcul disponible.'; return; }
+
+  const unique = new Map<string, { account_number: string; occurrences: number }>();
+  for (const line of state.result.lines.filter((l:any) => l.vat_category === 'UNMAPPED')) {
+    const current = unique.get(line.account_number) ?? { account_number: line.account_number, occurrences: 0 };
+    current.occurrences += 1;
+    unique.set(line.account_number, current);
+  }
+  const rows = [...unique.values()];
+  if (!rows.length) { container.textContent = 'Aucun compte 445 non mappé.'; return; }
+  container.appendChild(table(rows));
+}
+
 function renderAnomaliesWithWorkflow(anomalies:any[]) {
   const container = document.getElementById('anomalies')!;
   container.innerHTML = '';
@@ -186,11 +250,13 @@ function recalc() {
   });
 
   renderConclusion();
+  renderMappingTable();
   document.getElementById('summary')!.textContent = JSON.stringify(state.result.summary, null, 2);
   const controls = document.getElementById('controls')!; controls.innerHTML = ''; controls.appendChild(table(state.result.controls));
   const byCategory = document.getElementById('byCategory')!; byCategory.innerHTML = ''; byCategory.appendChild(table([...state.result.categoryTotals.entries()].map(([vat_category, amount]:any)=>({vat_category, amount}))));
   const byAccount = document.getElementById('byAccount')!; byAccount.innerHTML = ''; byAccount.appendChild(table(state.result.accountTotals));
   renderAnomaliesWithWorkflow(state.result.anomalies);
+  renderUnmapped445();
 }
 
 (document.getElementById('modeCsv') as HTMLButtonElement).onclick = () => { state.mode='csv'; (document.getElementById('csvBox') as HTMLElement).style.display='grid'; (document.getElementById('apiBox') as HTMLElement).style.display='none'; };
@@ -220,6 +286,31 @@ function recalc() {
   status('Calcul terminé');
 };
 
+
+(document.getElementById('addMapping') as HTMLButtonElement).onclick = () => {
+  state.mapping.push({
+    company_id: $('mapCompanyId').value || '__DEFAULT__',
+    account_prefix: $('mapAccountPrefix').value.trim(),
+    vat_category: $('mapVatCategory').value.trim(),
+    direction: $('mapDirection').value.toUpperCase(),
+    sign_factor: Number($('mapSignFactor').value || '1'),
+    priority: Number($('mapPriority').value || '100'),
+    is_active: $('mapIsActive').value
+  });
+  renderMappingTable();
+  if (state.result) recalc();
+};
+
+(document.getElementById('mappingTable') as HTMLElement).onclick = (ev) => {
+  const target = ev.target as HTMLElement;
+  if (!target || target.tagName !== 'BUTTON') return;
+  const idx = Number((target as HTMLButtonElement).dataset.mapIndex);
+  if (!Number.isFinite(idx) || !state.mapping[idx]) return;
+  state.mapping[idx].is_active = 'false';
+  renderMappingTable();
+  if (state.result) recalc();
+};
+
 (document.getElementById('anomalies') as HTMLElement).onclick = (ev) => {
   const target = ev.target as HTMLElement;
   if (!target || target.tagName !== 'TD') return;
@@ -247,6 +338,8 @@ function recalc() {
   });
   XLSX.writeFile(wb, `cadrage_tva_${state.result.summary.company_id}_${state.result.summary.period_end}.xlsx`);
 };
+
+renderMappingTable();
 
 // Minimal workflow helpers via console for now
 (window as any).proposeAdjustment = (lineId: string) => {
