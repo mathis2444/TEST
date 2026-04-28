@@ -1036,3 +1036,10 @@ Fonctionnalités livrées dans l'app :
 
 Le build inclut désormais un moteur séparé de l'interface dans `src/core/*`, une exécution web via Vite, un proxy API sécurisé `/api/pennylane/*` (clé serveur uniquement), et une suite de tests Vitest (`npm test`).
 
+
+## Notes de sécurité build actuel
+
+- Le flux actif passe par l'application TypeScript (`src/main.ts`) avec rendu DOM sécurisé.
+- Le mode API s'appuie sur un proxy local `/api/pennylane/*` avec clé API côté serveur.
+- Le fichier `web_local/index.html` est conservé uniquement comme page d'orientation et non comme moteur actif.
+

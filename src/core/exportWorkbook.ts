@@ -1,9 +1,17 @@
 import * as XLSX from 'xlsx';
-import type { Control, ReconciliationSummary } from '../types';
+
+function safeExcel(value: unknown) {
+  const s = String(value ?? '');
+  return /^[=+\-@]/.test(s) ? `'${s}` : s;
+}
+
+function sanitizeRows(rows: any[]) {
+  return rows.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k, typeof v === 'string' ? safeExcel(v) : v])));
+}
 
 export function exportWorkbook(payload: {
-  summary: ReconciliationSummary;
-  controls: Control[];
+  summary: any;
+  controls: any[];
   source: 'CSV' | 'API';
   limitations: string[];
   mapping: any[];
@@ -13,9 +21,14 @@ export function exportWorkbook(payload: {
   anomalies: any[];
   lines: any[];
   adjustments: any[];
+  byCategory?: any[];
+  byAccount?: any[];
+  declarationsRetained?: any[];
+  declarationsExcluded?: any[];
+  ytd?: { declared_amount_ytd: number; vat_theoretical_ytd: number; cadrage_gap_ytd: number };
 }) {
   const wb = XLSX.utils.book_new();
-  const add = (name: string, rows: any[]) => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), name);
+  const add = (name: string, rows: any[]) => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sanitizeRows(rows)), name);
 
   add('README_CONTROLE', [{
     societe: payload.summary.company_id,
@@ -33,8 +46,13 @@ export function exportWorkbook(payload: {
   }]);
 
   add('Summary', [payload.summary]);
+  if (payload.ytd) add('YTD', [payload.ytd]);
   add('Controls', payload.controls);
   add('Adjustments', payload.adjustments);
+  if (payload.byCategory) add('ByCategory', payload.byCategory);
+  if (payload.byAccount) add('ByAccount445', payload.byAccount);
+  if (payload.declarationsRetained) add('DeclarationsRetained', payload.declarationsRetained);
+  if (payload.declarationsExcluded) add('DeclarationsExcluded', payload.declarationsExcluded);
   add('MappingUsed', payload.mapping);
   add('RawVatDeclarations', payload.rawVat);
   add('RawTaxDeclarations', payload.rawTax);

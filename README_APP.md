@@ -14,9 +14,7 @@ npm run build
 npm test
 ```
 
-## Architecture
-
-Le moteur est séparé de l'interface :
+## Architecture (moteur séparé)
 
 - `src/core/normalizeColumns.ts`
 - `src/core/parseAmounts.ts`
@@ -27,10 +25,19 @@ Le moteur est séparé de l'interface :
 - `src/core/applyAdjustments.ts`
 - `src/core/exportWorkbook.ts`
 
+## UI principale
+
+L’UI TypeScript (`src/main.ts`) supporte :
+- mode CSV,
+- mode API via proxy,
+- affichage contrôles/anomalies,
+- tableaux par catégorie et par compte 445,
+- export Excel enrichi.
+
 ## API mode sécurisé
 
 Le front appelle uniquement `/api/pennylane/*`.
-La clé Pennylane doit rester côté serveur (`PENNYLANE_API_KEY`).
+La clé Pennylane reste côté serveur (`PENNYLANE_API_KEY`).
 
 Endpoints whitelistés :
 - `/companies`
@@ -41,7 +48,7 @@ Endpoints whitelistés :
 - `/fiscal_years`
 
 ## Limites connues
-- Le mode API direct est réservé aux tests locaux via `npm run dev`.
-- Le cadrage TVA repose sur les comptes 445.
-- Les régimes TVA sur encaissement et TVA sur marge nécessitent un traitement complémentaire.
-- Les corrections proposées ne modifient pas la donnée source.
+- Le mode API est local (`npm run dev`) et nécessite un proxy configuré.
+- Les régimes TVA sur encaissement/marge restent en `NON_CONCLUANT` (cadrage partiel).
+- Les corrections nécessitent revue utilisateur avant statut `VALIDATED/APPLIED`.
+- Les corrections ne modifient jamais les données sources.

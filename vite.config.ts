@@ -48,7 +48,7 @@ export default defineConfig({
           res.end(txt);
         } catch (e) {
           res.statusCode = 500;
-          res.end(JSON.stringify({ error: 'proxy_error', details: String(e) }));
+          res.end(JSON.stringify({ error: 'proxy_error' }));
         }
       });
     }
