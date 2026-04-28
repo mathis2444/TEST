@@ -1031,3 +1031,8 @@ Fonctionnalités livrées dans l'app :
 - gestion avancée des crédits antérieurs
 - contrôle des paiements bancaires
 
+
+## Implémentation framework (version structurée)
+
+Le build inclut désormais un moteur séparé de l'interface dans `src/core/*`, une exécution web via Vite, un proxy API sécurisé `/api/pennylane/*` (clé serveur uniquement), et une suite de tests Vitest (`npm test`).
+

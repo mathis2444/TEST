@@ -1,53 +1,47 @@
-# Cadrage TVA – Web local (sans Python)
+# TVA Reconciliation Framework (build-tva-reconciliation-framework-using-pennylane-data)
 
-## Ouverture locale
+## Installation
 
-1. Double-cliquez `web_local/index.html`.
-2. La page s’ouvre directement dans le navigateur.
+```bash
+npm install
+```
 
-## Mode CSV local
+## Scripts
 
-1. Chargez `vat_declarations.csv`.
-2. Chargez `tax_declarations.csv` (optionnel).
-3. Chargez `general_ledger.csv`.
-4. (Optionnel) chargez `web_local/mapping_template.csv`.
-5. Sélectionnez société + période + ouverture exercice.
-6. Cliquez **Lancer cadrage**.
+```bash
+npm run dev
+npm run build
+npm test
+```
 
-## Mode API (proxy sécurisé recommandé)
+## Architecture
 
-1. Passez en mode API.
-2. Renseignez les endpoints (companies, vat, tax, gl, mapping).
-3. Cliquez **Charger sociétés API** puis **Synchroniser API**.
-4. Lancez le cadrage.
+Le moteur est séparé de l'interface :
 
-## Workflow anomalies
+- `src/core/normalizeColumns.ts`
+- `src/core/parseAmounts.ts`
+- `src/core/parseDates.ts`
+- `src/core/classifyVatLines.ts`
+- `src/core/computeVatReconciliation.ts`
+- `src/core/detectAnomalies.ts`
+- `src/core/applyAdjustments.ts`
+- `src/core/exportWorkbook.ts`
 
-- Sélectionnez une action rapide.
-- Cliquez **Proposer** sur une ligne.
-- Passez le statut en `VALIDATED` ou `APPLIED`.
-- Seules les corrections validées/appliquées impactent l’écart ajusté.
+## API mode sécurisé
 
-## Export Excel (piste d’audit)
+Le front appelle uniquement `/api/pennylane/*`.
+La clé Pennylane doit rester côté serveur (`PENNYLANE_API_KEY`).
 
-L’export contient :
-- Parameters
-- Summary
-- Controls
-- ByCategory
-- Explanations
-- ByAccount445
-- Anomalies
-- Corrections
-- MappingUsed
-- RawVatDeclarations
-- RawTaxDeclarations
-- RawGeneralLedger
-- ClassifiedLines
+Endpoints whitelistés :
+- `/companies`
+- `/vat_declarations`
+- `/tax_declarations`
+- `/general_ledger`
+- `/vat_account_mapping`
+- `/fiscal_years`
 
 ## Limites connues
-- Le mode API direct est réservé aux tests locaux.
-- Ne pas utiliser de clé API cabinet dans le navigateur.
+- Le mode API direct est réservé aux tests locaux via `npm run dev`.
 - Le cadrage TVA repose sur les comptes 445.
 - Les régimes TVA sur encaissement et TVA sur marge nécessitent un traitement complémentaire.
 - Les corrections proposées ne modifient pas la donnée source.

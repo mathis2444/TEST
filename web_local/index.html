@@ -113,7 +113,7 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
-    const CALC_CATEGORIES=['COLLECTEE','DED_ABS','DED_IMMO','DUE_AUTOLIQ','DED_AUTOLIQ','CREDIT_TVA','REGULARISATION_TVA'];
+    const CALC_CATEGORIES=['COLLECTEE','DED_ABS','DED_IMMO','DUE_AUTOLIQ','DED_AUTOLIQ','CREDIT_ANTERIEUR','REGULARISATION_TVA'];
     const EXPLANATION_CATEGORIES=['TVA_A_DECAISSER','TVA_FACTURES_NON_PARVENUES','TVA_FACTURES_A_ETABLIR'];
 
     const state={mode:'csv',vat:[],tax:[],gl:[],mapping:[],result:null,corrections:new Map()};
@@ -175,7 +175,7 @@
       {company_id:'__DEFAULT__',account_prefix:'44566',vat_category:'DED_ABS',direction:'DEBIT',sign_factor:1,priority:10,is_active:'true'},
       {company_id:'__DEFAULT__',account_prefix:'44562',vat_category:'DED_IMMO',direction:'DEBIT',sign_factor:1,priority:10,is_active:'true'},
       {company_id:'__DEFAULT__',account_prefix:'4452',vat_category:'DUE_AUTOLIQ',direction:'CREDIT',sign_factor:1,priority:20,is_active:'true'},
-      {company_id:'__DEFAULT__',account_prefix:'44567',vat_category:'CREDIT_TVA',direction:'DEBIT',sign_factor:1,priority:20,is_active:'true'},
+      {company_id:'__DEFAULT__',account_prefix:'44567',vat_category:'CREDIT_ANTERIEUR',direction:'DEBIT',sign_factor:1,priority:20,is_active:'true'},
       {company_id:'__DEFAULT__',account_prefix:'44551',vat_category:'TVA_A_DECAISSER',direction:'NET',sign_factor:1,priority:30,is_active:'true'},
       {company_id:'__DEFAULT__',account_prefix:'44558',vat_category:'REGULARISATION_TVA',direction:'NET',sign_factor:1,priority:30,is_active:'true'},
       {company_id:'__DEFAULT__',account_prefix:'44586',vat_category:'TVA_FACTURES_NON_PARVENUES',direction:'NET',sign_factor:1,priority:40,is_active:'true'},
