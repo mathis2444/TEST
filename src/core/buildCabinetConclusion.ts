@@ -1,4 +1,4 @@
-import type { ReconciliationSummary } from '../types';
+import type { Control, ReconciliationSummary } from '../types';
 
 export interface CabinetConclusion {
   company: string;
@@ -9,6 +9,7 @@ export interface CabinetConclusion {
   gap: number;
   threshold: number;
   finalStatus: ReconciliationSummary['reconciliation_confidence_score'];
+  blockingControls: string[];
   message: string;
   regimeAlert?: string;
 }
@@ -34,8 +35,10 @@ export function regimeAlert(regime: ReconciliationSummary['regime_tva']) {
   return undefined;
 }
 
-export function buildCabinetConclusion(summary: ReconciliationSummary, threshold: number): CabinetConclusion {
+export function buildCabinetConclusion(summary: ReconciliationSummary, threshold: number, controls: Control[] = []): CabinetConclusion {
   const status = ['encaissements', 'marge'].includes(summary.regime_tva) ? 'NON_CONCLUANT' : summary.reconciliation_confidence_score;
+  const blockingControls = controls.filter((c) => c.level === 'BLOCKING').map((c) => c.code);
+
   return {
     company: summary.company_name || summary.company_id,
     period: `${summary.period_start} → ${summary.period_end}`,
@@ -45,6 +48,7 @@ export function buildCabinetConclusion(summary: ReconciliationSummary, threshold
     gap: summary.cadrage_gap_adjusted,
     threshold,
     finalStatus: status,
+    blockingControls,
     message: conclusionMessage(status),
     regimeAlert: regimeAlert(summary.regime_tva)
   };

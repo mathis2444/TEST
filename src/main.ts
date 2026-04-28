@@ -105,7 +105,7 @@ function renderConclusion() {
   }
 
   const threshold = Number($('threshold').value);
-  const c = buildCabinetConclusion(state.result.summary, threshold);
+  const c = buildCabinetConclusion(state.result.summary, threshold, state.result.controls ?? []);
 
   const fields = [
     { k: 'Société', v: c.company },
@@ -115,7 +115,8 @@ function renderConclusion() {
     { k: 'TVA théorique grand livre', v: formatAmount(c.theoreticalVat) },
     { k: 'Écart', v: formatAmount(c.gap) },
     { k: 'Seuil', v: formatAmount(c.threshold) },
-    { k: 'Statut final', v: c.finalStatus }
+    { k: 'Statut final', v: c.finalStatus },
+    { k: 'Contrôles bloquants', v: c.blockingControls.length ? c.blockingControls.join(', ') : 'Aucun' }
   ];
 
   const dl = document.createElement('dl');

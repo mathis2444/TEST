@@ -18,6 +18,30 @@ const mapping = csv('tests/sample_mapping.csv') as any[];
 const keysVat = normalizeColumns(vat[0], aliases);
 const keysGl = normalizeColumns(gl[0], aliases);
 
+
+function makeSummary(overrides: Partial<Parameters<typeof buildCabinetConclusion>[0]> = {}) {
+  return {
+    company_id: 'C1',
+    company_name: 'Cabinet Demo',
+    period_start: '2026-01-01',
+    period_end: '2026-01-31',
+    fiscal_year_start: '2026-01-01',
+    regime_tva: 'debits',
+    declaration_form_name: '3310CA3',
+    declaration_amount: 100,
+    payment_amount: 100,
+    vat_theoretical_period: 100,
+    cadrage_gap_period: 0,
+    cadrage_gap_adjusted: 0,
+    gap_status: 'OK',
+    tax_declaration_status: 'ACCEPTED',
+    is_declaration_validated: true,
+    is_payment_validated: true,
+    reconciliation_confidence_score: 'FIABLE',
+    ...overrides
+  } as any;
+}
+
 describe('parsers', () => {
   it('parse FR amount', () => {
     expect(num('1 234,56')).toBe(1234.56);
@@ -91,6 +115,22 @@ describe('cabinet conclusion', () => {
     expect(conclusionMessage('FIABLE')).toBe('Le cadrage TVA ne présente pas d’écart significatif au regard du seuil retenu.');
     expect(conclusionMessage('A_CONTROLER')).toBe('Un écart ou des contrôles nécessitent une revue.');
     expect(conclusionMessage('NON_CONCLUANT')).toBe('Le cadrage ne permet pas de conclure sans analyse complémentaire.');
+  });
+
+
+  it('keeps debits final status from reconciliation result (FIABLE)', () => {
+    const conclusion = buildCabinetConclusion(makeSummary({ regime_tva: 'debits', reconciliation_confidence_score: 'FIABLE' }), 5, []);
+    expect(conclusion.finalStatus).toBe('FIABLE');
+  });
+
+  it('keeps debits final status from reconciliation result (A_CONTROLER)', () => {
+    const conclusion = buildCabinetConclusion(makeSummary({ regime_tva: 'debits', reconciliation_confidence_score: 'A_CONTROLER' }), 5, []);
+    expect(conclusion.finalStatus).toBe('A_CONTROLER');
+  });
+
+  it('exposes blocking controls in conclusion', () => {
+    const conclusion = buildCabinetConclusion(makeSummary(), 5, [{ code: 'TVA_DECLARATION_NOT_FOUND', level: 'BLOCKING', message: '', action: '', impact: '' }]);
+    expect(conclusion.blockingControls).toEqual(['TVA_DECLARATION_NOT_FOUND']);
   });
 
   it('forces NON_CONCLUANT for encaissements and returns specific alert', () => {
