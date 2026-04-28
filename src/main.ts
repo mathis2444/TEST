@@ -3,6 +3,7 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { aliases, normalizeColumns, validateInputSchema } from './core/normalizeColumns';
 import { computeVatReconciliation } from './core/computeVatReconciliation';
+import { buildCabinetConclusion } from './core/buildCabinetConclusion';
 import { exportWorkbook } from './core/exportWorkbook';
 import type { Adjustment, RegimeTva } from './types';
 
@@ -38,6 +39,7 @@ app.innerHTML = `
   <div class="row"><button id="syncApi">Synchroniser API</button><button id="run">Calculer</button><button id="export">Exporter Excel</button></div>
 </div>
 <div class="card"><h3>Schema</h3><pre id="schema"></pre></div>
+<div class="card"><h3>Conclusion du cadrage TVA</h3><div id="conclusion"></div></div>
 <div class="card"><h3>Summary</h3><pre id="summary"></pre></div>
 <div class="card"><h3>Par catégorie</h3><div id="byCategory" class="tbl"></div></div>
 <div class="card"><h3>Par compte 445</h3><div id="byAccount" class="tbl"></div></div>
@@ -89,6 +91,59 @@ async function fetchPaged(endpoint: string, params: Record<string,string>) {
   return all;
 }
 
+
+function formatAmount(v: number) {
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v);
+}
+
+function renderConclusion() {
+  const root = document.getElementById('conclusion')!;
+  root.innerHTML = '';
+  if (!state.result?.summary) {
+    root.textContent = 'Aucun calcul disponible.';
+    return;
+  }
+
+  const threshold = Number($('threshold').value);
+  const c = buildCabinetConclusion(state.result.summary, threshold);
+
+  const fields = [
+    { k: 'Société', v: c.company },
+    { k: 'Période', v: c.period },
+    { k: 'Régime TVA', v: c.regime },
+    { k: 'TVA déclarée', v: formatAmount(c.declaredVat) },
+    { k: 'TVA théorique grand livre', v: formatAmount(c.theoreticalVat) },
+    { k: 'Écart', v: formatAmount(c.gap) },
+    { k: 'Seuil', v: formatAmount(c.threshold) },
+    { k: 'Statut final', v: c.finalStatus }
+  ];
+
+  const dl = document.createElement('dl');
+  dl.className = 'conclusion-grid';
+  for (const f of fields) {
+    const dt = document.createElement('dt');
+    dt.textContent = f.k;
+    const dd = document.createElement('dd');
+    dd.textContent = String(f.v);
+    dl.appendChild(dt);
+    dl.appendChild(dd);
+  }
+
+  const p = document.createElement('p');
+  p.className = 'conclusion-message';
+  p.textContent = c.message;
+
+  root.appendChild(dl);
+  root.appendChild(p);
+
+  if (c.regimeAlert) {
+    const warn = document.createElement('p');
+    warn.className = 'conclusion-alert';
+    warn.textContent = c.regimeAlert;
+    root.appendChild(warn);
+  }
+}
+
 function renderAnomaliesWithWorkflow(anomalies:any[]) {
   const container = document.getElementById('anomalies')!;
   container.innerHTML = '';
@@ -129,6 +184,7 @@ function recalc() {
     adjustments: state.adjustments
   });
 
+  renderConclusion();
   document.getElementById('summary')!.textContent = JSON.stringify(state.result.summary, null, 2);
   const controls = document.getElementById('controls')!; controls.innerHTML = ''; controls.appendChild(table(state.result.controls));
   const byCategory = document.getElementById('byCategory')!; byCategory.innerHTML = ''; byCategory.appendChild(table([...state.result.categoryTotals.entries()].map(([vat_category, amount]:any)=>({vat_category, amount}))));

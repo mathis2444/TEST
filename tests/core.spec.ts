@@ -3,6 +3,7 @@ import { num } from '../src/core/parseAmounts';
 import { dt } from '../src/core/parseDates';
 import { computeVatReconciliation } from '../src/core/computeVatReconciliation';
 import { aliases, normalizeColumns } from '../src/core/normalizeColumns';
+import { buildCabinetConclusion, conclusionMessage } from '../src/core/buildCabinetConclusion';
 import fs from 'node:fs';
 import Papa from 'papaparse';
 
@@ -81,5 +82,28 @@ describe('non regression', () => {
     const gl2 = [...gl, { company_id:'C1', date:'31/01/2026', plan_item_number:'44599', debit:'1', credit:'0', journal_code:'OD', document_id:'<img src=x>', invoice_number:'=SUM(1,1)', id:'M1' } as any];
     const r = computeVatReconciliation({ companyId:'C1', vatDeclarations:vat, taxDeclarations:tax, generalLedger:gl2, mapping, selectedPeriodStart:'2026-01-01', selectedPeriodEnd:'2026-01-31', fiscalYearStart:'2026-01-01', regimeTva:'debits', threshold:5, keysVat, keysGl, adjustments:[] });
     expect(r.anomalies.length).toBeGreaterThan(0);
+  });
+});
+
+
+describe('cabinet conclusion', () => {
+  it('uses professional message for each status', () => {
+    expect(conclusionMessage('FIABLE')).toBe('Le cadrage TVA ne présente pas d’écart significatif au regard du seuil retenu.');
+    expect(conclusionMessage('A_CONTROLER')).toBe('Un écart ou des contrôles nécessitent une revue.');
+    expect(conclusionMessage('NON_CONCLUANT')).toBe('Le cadrage ne permet pas de conclure sans analyse complémentaire.');
+  });
+
+  it('forces NON_CONCLUANT for encaissements and returns specific alert', () => {
+    const base = computeVatReconciliation({ companyId:'C1', vatDeclarations:vat, taxDeclarations:tax, generalLedger:gl, mapping, selectedPeriodStart:'2026-01-01', selectedPeriodEnd:'2026-01-31', fiscalYearStart:'2026-01-01', regimeTva:'encaissements', threshold:5, keysVat, keysGl, adjustments:[] });
+    const conclusion = buildCabinetConclusion(base.summary, 5);
+    expect(conclusion.finalStatus).toBe('NON_CONCLUANT');
+    expect(conclusion.regimeAlert).toContain('encaissements');
+  });
+
+  it('forces NON_CONCLUANT for marge and returns specific alert', () => {
+    const base = computeVatReconciliation({ companyId:'C1', vatDeclarations:vat, taxDeclarations:tax, generalLedger:gl, mapping, selectedPeriodStart:'2026-01-01', selectedPeriodEnd:'2026-01-31', fiscalYearStart:'2026-01-01', regimeTva:'marge', threshold:5, keysVat, keysGl, adjustments:[] });
+    const conclusion = buildCabinetConclusion(base.summary, 5);
+    expect(conclusion.finalStatus).toBe('NON_CONCLUANT');
+    expect(conclusion.regimeAlert).toContain('marge');
   });
 });

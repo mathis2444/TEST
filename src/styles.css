@@ -7,3 +7,9 @@ button{background:#1f6feb;color:#fff;border:none;cursor:pointer}
 .tbl{max-height:280px;overflow:auto}
 table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #e3e8f2;padding:6px}
 .status{padding:8px;border:1px solid #cbd5e1;background:#eff6ff;border-radius:8px}
+
+.conclusion-grid { display:grid; grid-template-columns: 220px 1fr; gap:8px 12px; margin: 0; }
+.conclusion-grid dt { font-weight: 700; }
+.conclusion-grid dd { margin: 0; }
+.conclusion-message { margin-top: 12px; font-weight: 600; }
+.conclusion-alert { margin-top: 8px; padding: 8px; border-radius: 6px; background: #fff4e5; border: 1px solid #f5c56d; }
