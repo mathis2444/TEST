@@ -1,30 +1,27 @@
 # AGENTS.md
 
-Instructions pour les futures tâches Codex sur ce dépôt.
+Règles de développement pour les futures tâches Codex dans ce dépôt.
 
-## Objectifs de stabilité
+## Sécurité et données sensibles
 
-- Prioriser la stabilité technique et la reproductibilité des commandes.
-- Éviter les changements de logique métier sans demande explicite.
-- Pour ce projet, la logique métier du cadrage TVA (`src/core/*`) ne doit pas être modifiée sauf instruction claire.
+- Ne jamais exposer de clé API réelle.
+- Ne jamais committer de secrets (`.env`, tokens, identifiants).
+- Utiliser `.env.example` avec des placeholders uniquement.
 
-## Workflow recommandé
+## Règles métier non négociables (V1)
 
-1. Installer les dépendances avec `npm install`.
-2. Vérifier les tests avec `npm test`.
-3. Vérifier le build avec `npm run build`.
-4. Documenter toute modification côté setup/deploiement dans `README.md`.
+- Ne jamais conclure **FIABLE** pour la **TVA sur marge** sans moteur dédié.
+- Ne jamais conclure **FIABLE** pour la **TVA sur encaissements** sans moteur dédié.
+- En V1, ces régimes doivent rester **NON_CONCLUANT**.
 
-## Configuration sensible
+## Qualité et tests
 
-- Ne jamais committer de secrets (`.env`, clés API réelles, tokens).
-- Utiliser `.env.example` pour exposer uniquement des placeholders.
-- Les variables attendues pour l'intégration Pennylane sont :
-  - `PENNYLANE_API_BASE_URL`
-  - `PENNYLANE_API_KEY`
+- Préserver les tests existants.
+- Ajouter des tests pour toute nouvelle règle métier.
+- Exécuter `npm test` et `npm run build` avant de proposer un changement.
 
-## Conventions de contribution
+## Architecture
 
-- Préférer des changements ciblés et atomiques.
-- Ajouter ou mettre à jour des tests si un comportement change.
-- Garder les messages de commit explicites.
+- Garder le moteur métier séparé de l’UI.
+- Éviter de mélanger logique `src/core/*` avec la couche interface (`src/main.ts`).
+- Ne pas modifier la logique métier sans demande explicite.
