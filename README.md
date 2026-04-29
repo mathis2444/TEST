@@ -78,3 +78,16 @@ Le mode API passe par le proxy local Vite (`/api/pennylane/*`) configuré par `v
 
 - `README_APP.md` : guide fonctionnel rapide.
 - `TVA_CADRAGE_PENNYLANE.md` : cadrage détaillé et méthodologie.
+
+
+## Architecture Front / Backend
+
+- **Front**: application Vite (`npm run dev`) qui consomme uniquement `/api/pennylane/*`.
+- **Backend**: serveur Node dédié (`npm run dev:api`) qui porte la logique d'accès Pennylane (`src/server/pennylaneClient.js`) et garde les variables d'environnement côté serveur.
+
+Démarrage local recommandé (2 terminaux):
+
+```bash
+npm run dev:api
+npm run dev
+```

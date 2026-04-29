@@ -97,7 +97,14 @@ async function fetchPaged(endpoint: string, params: Record<string,string>) {
     u.searchParams.set('page', String(page));
     u.searchParams.set('limit', '500');
     const r = await fetch(u.toString());
-    if (!r.ok) throw new Error(`API ${endpoint} ${r.status}`);
+    if (!r.ok) {
+      let detail = '';
+      try {
+        const err = await r.json();
+        detail = err?.message || err?.error || '';
+      } catch {}
+      throw new Error(`API ${endpoint} ${r.status}${detail ? ` - ${detail}` : ''}`);
+    }
     const j = await r.json();
     const chunk = Array.isArray(j) ? j : (Array.isArray(j.data) ? j.data : []);
     all.push(...chunk);

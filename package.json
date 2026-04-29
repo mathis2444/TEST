@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev:api": "node src/server/apiServer.js"
   },
   "dependencies": {
     "papaparse": "^5.4.1",
