@@ -389,7 +389,8 @@ function recalc() {
     byAccount: state.result.accountTotals,
     declarationsRetained: state.result.declarationsRetained,
     declarationsExcluded: state.result.declarationsExcluded,
-    ytd: { declared_amount_ytd: state.result.declarationAmountYtd, vat_theoretical_ytd: state.result.vatTheoreticalYtd, cadrage_gap_ytd: state.result.cadrageGapYtd }
+    ytd: { declared_amount_ytd: state.result.declarationAmountYtd, vat_theoretical_ytd: state.result.vatTheoreticalYtd, cadrage_gap_ytd: state.result.cadrageGapYtd },
+    threshold: Number($('threshold').value)
   });
   XLSX.writeFile(wb, `cadrage_tva_${state.result.summary.company_id}_${state.result.summary.period_end}.xlsx`);
 };

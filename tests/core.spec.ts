@@ -6,6 +6,7 @@ import { classifyVatLines } from '../src/core/classifyVatLines';
 import { aliases, normalizeColumns } from '../src/core/normalizeColumns';
 import { buildCabinetConclusion, conclusionMessage } from '../src/core/buildCabinetConclusion';
 import { applyAdjustments } from '../src/core/applyAdjustments';
+import { exportWorkbook } from '../src/core/exportWorkbook';
 import fs from 'node:fs';
 import Papa from 'papaparse';
 
@@ -277,5 +278,54 @@ describe('applyAdjustments', () => {
   it('ignores adjustment if anomaly line is missing', () => {
     const out = applyAdjustments(1000, anomalies, [{ lineId: 'UNKNOWN', action: 'EXCLUDE_LINE', status: 'VALIDEE', author: 'u', timestamp: '', comment: 'ok', oldImpact: 0, newImpact: 0 } as any]);
     expect(out).toBe(1000);
+  });
+});
+
+
+describe('exportWorkbook', () => {
+  it('includes key cabinet sheets', () => {
+    const wb = exportWorkbook({
+      summary: {
+        company_id: 'C1', company_name: 'Cabinet Demo', period_start: '2026-01-01', period_end: '2026-01-31', regime_tva: 'debits',
+        declaration_amount: 1000, vat_theoretical_period: 995, cadrage_gap_adjusted: 5, cadrage_gap_period: 5,
+        tax_declaration_status: 'ACCEPTED', is_payment_validated: true, reconciliation_confidence_score: 'FIABLE'
+      },
+      controls: [
+        { code: 'W1', level: 'WARNING', message: 'warn', action: 'act', impact: 'A_CONTROLER' },
+        { code: 'B1', level: 'BLOCKING', message: 'block', action: 'act', impact: 'NON_CONCLUANT' }
+      ],
+      source: 'CSV',
+      limitations: [],
+      mapping: [],
+      rawVat: [],
+      rawTax: [],
+      rawGl: [],
+      anomalies: [{ id: 'L1' }],
+      lines: [],
+      adjustments: [{ lineId: 'L1', action: 'EXCLUDE_LINE', status: 'VALIDEE', author: 'chef', timestamp: '2026-01-31', comment: 'ok', oldImpact: 0, newImpact: 0 }],
+      threshold: 5
+    });
+
+    expect(wb.SheetNames).toContain('Conclusion');
+    expect(wb.SheetNames).toContain('Supervision');
+    expect(wb.SheetNames).toContain('Controls');
+    expect(wb.SheetNames).toContain('AnomaliesReview');
+  });
+
+  it('sorts controls by severity in Controls sheet', () => {
+    const wb = exportWorkbook({
+      summary: { company_id: 'C1', period_start: '2026-01-01', period_end: '2026-01-31', regime_tva: 'debits', declaration_amount: 0, vat_theoretical_period: 0, cadrage_gap_adjusted: 0, cadrage_gap_period: 0, tax_declaration_status: 'ACCEPTED', is_payment_validated: true, reconciliation_confidence_score: 'A_CONTROLER' },
+      controls: [
+        { code: 'I1', level: 'INFO', message: '', action: '', impact: '' },
+        { code: 'W1', level: 'WARNING', message: '', action: '', impact: '' },
+        { code: 'B1', level: 'BLOCKING', message: '', action: '', impact: '' }
+      ],
+      source: 'CSV', limitations: [], mapping: [], rawVat: [], rawTax: [], rawGl: [], anomalies: [], lines: [], adjustments: []
+    });
+
+    const controlsSheet = wb.Sheets['Controls'];
+    expect(controlsSheet['A2']?.v).toBe('B1');
+    expect(controlsSheet['A3']?.v).toBe('W1');
+    expect(controlsSheet['A4']?.v).toBe('I1');
   });
 });
