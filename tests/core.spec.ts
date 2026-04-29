@@ -7,6 +7,7 @@ import { aliases, normalizeColumns } from '../src/core/normalizeColumns';
 import { buildCabinetConclusion, conclusionMessage } from '../src/core/buildCabinetConclusion';
 import { applyAdjustments } from '../src/core/applyAdjustments';
 import { exportWorkbook } from '../src/core/exportWorkbook';
+import { buildPortfolioSummary } from '../src/core/buildPortfolioSummary';
 import fs from 'node:fs';
 import Papa from 'papaparse';
 
@@ -327,5 +328,28 @@ describe('exportWorkbook', () => {
     expect(controlsSheet['A2']?.v).toBe('B1');
     expect(controlsSheet['A3']?.v).toBe('W1');
     expect(controlsSheet['A4']?.v).toBe('I1');
+  });
+});
+
+
+describe('buildPortfolioSummary', () => {
+  it('builds one summary line per dossier with blocking and untreated counts', () => {
+    const out = buildPortfolioSummary([
+      {
+        company_id: 'C1',
+        company_name: 'Cabinet Alpha',
+        period_start: '2026-01-01',
+        period_end: '2026-01-31',
+        summary: { declaration_amount: 100, vat_theoretical_period: 90, cadrage_gap_adjusted: 10, reconciliation_confidence_score: 'A_CONTROLER' } as any,
+        controls: [{ level: 'BLOCKING' }, { level: 'WARNING' }] as any,
+        anomalies: [{ id: 'A1' }, { id: 'A2' }] as any,
+        adjustments: [{ lineId: 'A1', action: 'EXCLUDE_LINE', status: 'VALIDEE', author: 'x', timestamp: '', comment: '', oldImpact: 0, newImpact: 0 }] as any
+      }
+    ] as any);
+
+    expect(out).toHaveLength(1);
+    expect(out[0].company_id).toBe('C1');
+    expect(out[0].blocking_controls).toBe(1);
+    expect(out[0].untreated_anomalies).toBe(1);
   });
 });

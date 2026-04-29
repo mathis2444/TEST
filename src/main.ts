@@ -5,11 +5,13 @@ import { aliases, normalizeColumns, validateInputSchema } from './core/normalize
 import { computeVatReconciliation } from './core/computeVatReconciliation';
 import { buildCabinetConclusion } from './core/buildCabinetConclusion';
 import { exportWorkbook } from './core/exportWorkbook';
+import { buildPortfolioSummary } from './core/buildPortfolioSummary';
 import type { Adjustment, RegimeTva } from './types';
 
 const app = document.getElementById('app')!;
 app.innerHTML = `
-<div class="card"><h2>TVA Reconciliation Framework</h2><div id="status" class="status">Prêt</div></div>
+<div class="card"><h2>TVA Reconciliation Framework</h2><div id="status" class="status">Prêt</div><div class="row"><button id="goDashboard">Dashboard</button><button id="goDetail">Détail dossier</button></div></div>
+<div class="card" id="dashboardCard"><h3>Dashboard Portefeuille</h3><div id="portfolioTable" class="tbl"></div></div>
 <div class="card">
   <div class="row">
     <button id="modeCsv">Mode CSV</button>
@@ -62,7 +64,7 @@ app.innerHTML = `
 <div class="card"><h3>Anomalies & Revue</h3><div id="anomalies" class="tbl"></div></div>
 `;
 
-const state: { mode:'csv'|'api'; vat:any[]; tax:any[]; gl:any[]; mapping:any[]; result:any; adjustments: Adjustment[] } = { mode:'csv', vat:[], tax:[], gl:[], mapping:[], result:null, adjustments:[] };
+const state: { mode:'csv'|'api'; vat:any[]; tax:any[]; gl:any[]; mapping:any[]; result:any; adjustments: Adjustment[]; portfolio:any[] } = { mode:'csv', vat:[], tax:[], gl:[], mapping:[], result:null, adjustments:[], portfolio:[] };
 
 const $ = (id:string) => document.getElementById(id) as HTMLInputElement;
 const status = (m:string) => (document.getElementById('status')!.textContent = m);
@@ -259,6 +261,65 @@ function renderAnomaliesWithWorkflow(anomalies:any[]) {
   container.appendChild(tableEl);
 }
 
+
+const mockPortfolioSource = [
+  {
+    company_id: 'C1',
+    company_name: 'Cabinet Alpha',
+    period_start: '2026-01-01',
+    period_end: '2026-01-31',
+    summary: { declaration_amount: 12000, vat_theoretical_period: 11950, cadrage_gap_adjusted: 50, reconciliation_confidence_score: 'A_CONTROLER' },
+    controls: [{ level: 'BLOCKING' }, { level: 'WARNING' }],
+    anomalies: [{ id: 'A1' }, { id: 'A2' }],
+    adjustments: [{ lineId: 'A1', action: 'EXCLUDE_LINE', status: 'VALIDEE', author: 'chef', timestamp: '', comment: 'ok', oldImpact: 0, newImpact: 0 }]
+  },
+  {
+    company_id: 'C2',
+    company_name: 'Cabinet Beta',
+    period_start: '2026-02-01',
+    period_end: '2026-02-28',
+    summary: { declaration_amount: 8000, vat_theoretical_period: 8000, cadrage_gap_adjusted: 0, reconciliation_confidence_score: 'FIABLE' },
+    controls: [],
+    anomalies: [],
+    adjustments: []
+  }
+];
+
+function renderPortfolioDashboard() {
+  const root = document.getElementById('portfolioTable')!;
+  state.portfolio = buildPortfolioSummary(mockPortfolioSource as any);
+  const rows = state.portfolio.map((r) => ({ ...r, open: 'Ouvrir' }));
+  if (!rows.length) { root.textContent = 'Aucune donnée portefeuille.'; return; }
+
+  const t = document.createElement('table');
+  const cols = ['company_id', 'company_name', 'period', 'declaration_amount', 'vat_theoretical_period', 'gap', 'status', 'blocking_controls', 'untreated_anomalies', 'open'];
+  const trh = document.createElement('tr');
+  cols.forEach((c) => { const th = document.createElement('th'); th.textContent = c; trh.appendChild(th); });
+  const thead = document.createElement('thead'); thead.appendChild(trh); t.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  rows.forEach((r) => {
+    const tr = document.createElement('tr');
+    tr.dataset.companyId = r.company_id;
+    cols.forEach((c) => {
+      const td = document.createElement('td');
+      td.textContent = String((r as any)[c] ?? '');
+      if (c === 'open') {
+        const b = document.createElement('button');
+        b.textContent = 'Ouvrir';
+        b.className = 'btn-small';
+        b.dataset.openCompanyId = r.company_id;
+        td.textContent = '';
+        td.appendChild(b);
+      }
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  t.appendChild(tbody);
+  root.innerHTML = '';
+  root.appendChild(t);
+}
+
 function recalc() {
   const keysVat = normalizeColumns(state.vat[0] ?? {}, aliases);
   const keysGl = normalizeColumns(state.gl[0] ?? {}, aliases);
@@ -283,6 +344,7 @@ function recalc() {
 
   renderConclusion();
   renderMappingTable();
+renderPortfolioDashboard();
   document.getElementById('summary')!.textContent = JSON.stringify(state.result.summary, null, 2);
   const controls = document.getElementById('controls')!; controls.innerHTML = ''; controls.appendChild(table(state.result.controls));
   const byCategory = document.getElementById('byCategory')!; byCategory.innerHTML = ''; byCategory.appendChild(table([...state.result.categoryTotals.entries()].map(([vat_category, amount]:any)=>({vat_category, amount}))));
@@ -330,6 +392,7 @@ function recalc() {
     is_active: $('mapIsActive').value
   });
   renderMappingTable();
+renderPortfolioDashboard();
   if (state.result) recalc();
 };
 
@@ -340,6 +403,7 @@ function recalc() {
   if (!Number.isFinite(idx) || !state.mapping[idx]) return;
   state.mapping[idx].is_active = 'false';
   renderMappingTable();
+renderPortfolioDashboard();
   if (state.result) recalc();
 };
 
@@ -378,6 +442,29 @@ function recalc() {
   status(`Revue enregistrée pour ${lineId}`);
 };
 
+
+(document.getElementById('portfolioTable') as HTMLElement).onclick = (ev) => {
+  const target = ev.target as HTMLElement;
+  const companyId = (target as HTMLButtonElement)?.dataset?.openCompanyId;
+  if (!companyId) return;
+  const row = mockPortfolioSource.find((r) => r.company_id === companyId);
+  if (!row) return;
+  $('companyId').value = row.company_id;
+  $('ps').value = row.period_start;
+  $('pe').value = row.period_end;
+  document.getElementById('summary')!.textContent = JSON.stringify(row.summary, null, 2);
+  status(`Dossier ${row.company_id} ouvert depuis le dashboard (données mockées).`);
+  document.getElementById('summary')?.scrollIntoView({ behavior: 'smooth' });
+};
+
+(document.getElementById('goDashboard') as HTMLButtonElement).onclick = () => {
+  document.getElementById('dashboardCard')?.scrollIntoView({ behavior: 'smooth' });
+};
+
+(document.getElementById('goDetail') as HTMLButtonElement).onclick = () => {
+  document.getElementById('summary')?.scrollIntoView({ behavior: 'smooth' });
+};
+
 (document.getElementById('export') as HTMLButtonElement).onclick = () => {
   if (!state.result) return;
   const wb = exportWorkbook({
@@ -403,6 +490,7 @@ function recalc() {
 };
 
 renderMappingTable();
+renderPortfolioDashboard();
 
 // Workflow helper kept for debugging
 (window as any).setReviewStatus = (lineId: string, statusVal: Adjustment['status'], comment = '') => {
