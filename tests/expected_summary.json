@@ -1,0 +1,12 @@
+{
+  "company_id": "C1",
+  "period_start": "2026-01-01",
+  "period_end": "2026-01-31",
+  "declared_amount_period": 1800.0,
+  "vat_theoretical_period": 750.0,
+  "cadrage_gap_period": 1050.0,
+  "expected_flags": [
+    "UNMAPPED_445",
+    "OD_HIGH_RISK"
+  ]
+}
