@@ -1,0 +1,17 @@
+body{font-family:Inter,Arial,sans-serif;background:#f6f8fc;margin:0;padding:16px;color:#1f2937}
+.card{background:#fff;border:1px solid #dfe5f1;border-radius:10px;padding:12px;margin-bottom:10px}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+input,select,button{padding:8px;border:1px solid #bcc7db;border-radius:8px}
+button{background:#1f6feb;color:#fff;border:none;cursor:pointer}
+.tbl{max-height:280px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:12px} th,td{border:1px solid #e3e8f2;padding:6px}
+.status{padding:8px;border:1px solid #cbd5e1;background:#eff6ff;border-radius:8px}
+
+.conclusion-grid { display:grid; grid-template-columns: 220px 1fr; gap:8px 12px; margin: 0; }
+.conclusion-grid dt { font-weight: 700; }
+.conclusion-grid dd { margin: 0; }
+.conclusion-message { margin-top: 12px; font-weight: 600; }
+.conclusion-alert { margin-top: 8px; padding: 8px; border-radius: 6px; background: #fff4e5; border: 1px solid #f5c56d; }
+
+.btn-small { padding: 4px 8px; font-size: 12px; }
