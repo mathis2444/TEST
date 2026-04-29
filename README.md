@@ -78,6 +78,7 @@ Le mode API passe par le proxy local Vite (`/api/pennylane/*`) configuré par `v
 
 - `README_APP.md` : guide fonctionnel rapide.
 - `TVA_CADRAGE_PENNYLANE.md` : cadrage détaillé et méthodologie.
+- `TVA_ENCAISSEMENTS_EXPERIMENTAL.md` : périmètre et données requises pour la V1 expérimentale encaissements.
 
 
 ## Architecture Front / Backend
