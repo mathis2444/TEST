@@ -1,0 +1,8 @@
+company_id,date,plan_item_number,plan_item_label,debit,credit,journal_code,invoice_number,document_id,thirdparty_id,thirdparty_plan_item_label,entry_id,line_id
+C1,31/01/2026,44571,TVA collectée,0,"1 200,00",VE,INV-001,DOC-1,T1,Client A,E1,L1
+C1,31/01/2026,44566,TVA déductible ABS,"300,00",0,AC,BILL-001,DOC-2,S1,Fournisseur A,E2,L2
+C1,31/01/2026,44562,TVA déductible immo,"100,00",0,AC,BILL-002,DOC-3,S2,Fournisseur B,E3,L3
+C1,31/01/2026,44567,Crédit TVA,"50,00",0,OD,,DOC-4,,OD TVA,E4,L4
+C1,31/01/2026,44599,Compte non mappé,"20,00",0,OD,,DOC-5,,OD TVA,E5,L5
+C1,31/01/2026,44586,TVA FNP,"10,00",0,OD,,DOC-6,,OD TVA,E6,L6
+C1,31/01/2026,44587,TVA FAE,0,"20,00",OD,,DOC-7,,OD TVA,E7,L7
